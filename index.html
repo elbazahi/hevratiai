@@ -161,6 +161,13 @@
       .animate-shimmer-rtl {
         animation: shimmer-rtl 3s infinite ease-in-out;
       }
+      @keyframes lightning-flash {
+        0% { transform: translateY(120%); opacity: 0; filter: brightness(1); }
+        10% { opacity: 1; filter: brightness(3); }
+        20% { opacity: 0.5; filter: brightness(1.5); }
+        30% { opacity: 1; filter: brightness(4); }
+        100% { transform: translateY(-120%); opacity: 0; filter: brightness(1); }
+      }
       .animate-lightning {
         animation: lightning-flash 2.5s infinite linear;
       }
@@ -286,6 +293,6 @@
     </div>
 
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="/index.tsx?v=13.5"></script>
   </body>
 </html>
