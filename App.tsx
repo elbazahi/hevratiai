@@ -77,7 +77,10 @@ import {
   ChevronLeft,
   FileBox,
   Compass,
-  Rocket
+  Rocket,
+  ShieldAlert,
+  ZapOff,
+  HelpCircle
 } from 'lucide-react';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -1245,18 +1248,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {isAdminPanelOpen && loginName === 'צחיי' && (
-        <div className="fixed inset-0 z-[400] bg-black/40 backdrop-blur-sm flex items-start justify-center p-2 md:p-4 overflow-y-auto" dir="rtl">
-          <div className="bg-white dark:bg-slate-900 w-full max-xl rounded-[2.5rem] p-5 md:p-6 shadow-2xl relative border-4 border-[#6c5ce7] animate-[pop-in_0.4s_ease-out] text-right mt-4 md:mt-8 mb-8 max-h-[90vh] flex flex-col overflow-hidden"><button onClick={() => setIsAdminPanelOpen(false)} className="absolute top-4 left-6 text-2xl opacity-40 hover:opacity-100 transition-all dark:text-white z-20">✕</button><div className="flex items-center gap-3 mb-4 border-b border-[#6c5ce7]/20 pb-3"><Settings className="w-5 h-5 text-[#6c5ce7] animate-spin-slow" /><h2 className="text-xl font-black text-[#6c5ce7] dark:text-[#a29bfe]">ניהול מערכת</h2></div><div className="flex-1 overflow-y-auto custom-scrollbar space-y-5 pr-1"><section className="space-y-3"><div className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-[#6c5ce7]" /><h3 className="text-sm font-black text-gray-800 dark:text-white">עדכון מבזקים</h3></div><div className="relative"><textarea value={adminTickerText} onChange={(e) => setAdminTickerText(e.target.value)} placeholder="הזן מבזקים מופרדים ב-(;)" className="w-full h-20 p-3 rounded-xl border-2 border-gray-100 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 font-bold outline-none focus:border-[#6c5ce7] transition-all dark:text-white resize-none text-xs" /></div><button onClick={handleUpdateTicker} disabled={isSavingTicker || isAdminLoadingData} className="w-full bg-[#6c5ce7] text-white py-3 rounded-xl font-black text-sm shadow-md flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 transition-all">{isSavingTicker ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}<span>שמור ועדכן</span></button></section><section className="space-y-2"><div className="bg-gray-50 dark:bg-white/5 p-3 rounded-xl border border-gray-200 dark:border-slate-700 flex items-center justify-between"><div className="flex items-center gap-2"><Power className={`w-4 h-4 ${maintenanceMode ? 'text-red-500' : 'text-green-500'}`} /><span className="text-xs font-black text-gray-800 dark:text-white">מצב תחזוקה</span></div><button onClick={toggleMaintenanceMode} disabled={isUpdatingStatus} className={`w-10 h-5 rounded-full relative transition-all shadow-inner ${maintenanceMode ? 'bg-red-500' : 'bg-green-500'}`}><div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all shadow-md ${maintenanceMode ? 'right-0.5' : 'right-5.5'}`} /></button></div><p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold px-1 italic">כאשר הלחצן אדום - האתר במצב תחזוקה וחסום לגישת משתמשים.</p></section><section className="space-y-3"><div className="flex items-center gap-2"><BarChart className="w-4 h-4 text-orange-500" /><h3 className="text-sm font-black text-gray-800 dark:text-white">סטטיסטיקת כניסות יומית (Live)</h3></div><div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-xl border border-gray-200 dark:border-slate-700 h-[200px] flex items-end justify-between gap-2 relative group overflow-hidden pt-10">{isAdminLoadingData ? (<div className="w-full h-full flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-orange-500 opacity-30" /></div>) : adminGraphData.length > 0 ? (adminGraphData.map((d, i) => { const now = new Date(); const todayLabel = now.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }); const isToday = d.label.includes(todayLabel); return (<div key={i} className="flex-1 flex flex-col items-center gap-2 group/bar h-full justify-end"><div className="relative w-full flex justify-center items-end h-[100px]"><div className={`absolute -top-7 left-1/2 -translate-x-1/2 text-[11px] font-black ${isToday ? 'text-blue-600 scale-110' : 'text-orange-600'} bg-white dark:bg-slate-900 px-2 py-0.5 rounded-lg border shadow-sm z-20 animate-in fade-in zoom-in`}>{d.value}</div><div className={`w-full max-w-[28px] ${isToday ? 'bg-gradient-to-t from-blue-700 via-blue-500 to-blue-300 shadow-[0_0_20px_rgba(59,130,246,0.8)]' : 'bg-gradient-to-t from-orange-600 via-orange-500 to-orange-400'} rounded-t-lg transition-all duration-1000 ease-out h-[${(d.value / maxVisits) * 100}%]`} style={{ height: `${(d.value / Math.max(...adminGraphData.map(v => v.value), 1)) * 100}%` }} /></div><div className={`text-[9px] font-black ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'} uppercase tracking-tighter text-center mt-1`}>{d.label}</div></div>); })) : (<div className="w-full h-full flex items-center justify-center text-xs text-gray-400 italic font-bold">ממתין לנתוני גרף...</div>)}</div></section><section className="space-y-2"><div className="flex items-center gap-2"><History className="w-4 h-4 text-indigo-500" /><h3 className="text-sm font-black text-gray-800 dark:text-white">כניסות אחרונות</h3></div><div className="flex flex-wrap gap-2 mb-2 px-1"><div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div><span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">טלפון</span></div><div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]"></div><span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">מחשב</span></div><div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-yellow-500 shadow-[0_0_5px_rgba(234,179,8,0.5)]"></div><span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">סימולטור</span></div><div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_5px_rgba(168,85,247,0.5)]"></div><span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">ניהול</span></div></div><div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-inner"><div className="max-h-[300px] overflow-y-auto custom-scrollbar"><table className="w-full text-center border-collapse"><thead className="bg-gray-100 dark:bg-slate-700 sticky top-0 z-20"><tr className="text-[10px] font-black text-gray-500 dark:text-slate-100"><th className="py-2 px-1">שם</th><th className="py-2 px-1">פעולה</th><th className="py-2 px-1">תאריך</th><th className="py-2 px-1">שעה</th><th className="py-2 px-1">עיר</th></tr></thead><tbody className="text-[11px]">{isAdminLoadingData ? (<tr><td colSpan={5} className="py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto text-[#6c5ce7]" /></td></tr>) : adminLastEntries.length > 0 ? (adminLastEntries.slice(0, 100).map((user: any, idx: number) => { const action = String(user.userAction || '-'); let badgeColor = 'bg-gray-50 text-gray-600 border-gray-200'; if (action === 'סימולטור') badgeColor = 'bg-yellow-50 text-yellow-600 border-yellow-200'; else if (action === 'טלפון') badgeColor = 'bg-green-50 text-green-600 border-green-200'; else if (action === 'מחשב') badgeColor = 'bg-blue-50 text-blue-600 border-blue-200'; else if (action === 'admin_access') badgeColor = 'bg-purple-50 text-purple-600 border-purple-200'; return (<tr key={idx} className="border-t border-gray-50 dark:border-slate-700 hover:bg-indigo-50/30 transition-colors"><td className="py-2 px-1 font-bold text-gray-800 dark:text-slate-100 truncate max-w-[70px]">{user.userName || '-'}</td><td className="py-2 px-1"><span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black border ${badgeColor}`}>{action}</span></td><td className="py-2 px-1 text-gray-500 tabular-nums">{user.entryDate || '-'}</td><td className="py-2 px-1 tabular-nums text-indigo-600 dark:text-indigo-300 font-bold">{formatOnlyTime(user.entryTime)}</td><td className="py-2 px-1 text-gray-400 truncate max-w-[60px]">{user.userCity || '-'}</td></tr>); })) : (<tr><td colSpan={5} className="py-10 text-gray-400 italic">אין נתונים זמינים</td></tr>)}</tbody></table></div></div></section></div><button onClick={() => setIsAdminPanelOpen(false)} className="mt-4 w-full bg-slate-100 dark:bg-slate-800 text-gray-700 dark:text-white py-3 rounded-xl font-black text-sm active:scale-95 transition-all">סגור חלונית</button></div>
-        </div>
-      )}
-
-      {contactModal.isOpen && (
-        <div className="fixed inset-0 z-[500] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[2.5rem] p-8 shadow-2xl relative border-2 border-[#6c5ce7] text-right animate-[pop-in_0.3s_ease-out]"><button onClick={() => setContactModal(p => ({ ...p, isOpen: false }))} className="absolute top-4 left-6 text-xl opacity-40 hover:opacity-100 dark:text-white">✕</button><div className="flex flex-col items-center gap-4 text-center"><div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg ${contactModal.type === 'phone' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>{contactModal.type === 'phone' ? <Phone className="w-8 h-8" /> : <Mail className="w-8 h-8" />}</div><h3 className="text-xl font-black text-gray-800 dark:text-white">{contactModal.title}</h3><p className="text-lg font-bold text-[#6c5ce7] break-all">{contactModal.value}</p><div className="flex flex-col gap-3 w-full mt-4"><a href={contactModal.type === 'phone' ? `tel:${contactModal.value}` : `mailto:${contactModal.value}`} className={`w-full py-4 rounded-2xl text-white font-black flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${contactModal.type === 'phone' ? 'bg-green-600 shadow-green-600/20 hover:bg-green-700' : 'bg-blue-600 shadow-blue-600/20 hover:bg-blue-700'}`}>{contactModal.type === 'phone' ? <><Phone className="w-5 h-5" /><span>התקשר עכשיו</span></> : <><Send className="w-5 h-5" /><span>שלח הודעה</span></>}</a><button onClick={() => handleCopyValue(contactModal.value)} className="w-full py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-gray-700 dark:text-white font-black flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 transition-all hover:bg-slate-200"><Copy className="w-5 h-5" /><span>{copyFeedback || 'העתק למגש'}</span></button></div></div></div>
-        </div>
-      )}
-
       {isGuideModalOpen && (
         <div className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-2 md:p-6" dir="rtl">
           <div className="bg-slate-50 dark:bg-[#0f172a] w-full max-5xl rounded-[3rem] shadow-[0_0_120px_rgba(108,92,231,0.5)] relative border-t-[14px] border-[#6c5ce7] flex flex-col h-full md:h-[92vh] overflow-hidden animate-[pop-in_0.4s_ease-out]">
@@ -1280,110 +1271,189 @@ const App: React.FC = () => {
             
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-12 space-y-16 hi-tech-grid">
               
+              {/* Introduction Section */}
               <section className="relative animate-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-2xl border border-purple-200 dark:border-purple-800">
+                    <Rocket className="w-7 h-7 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">ברוכים הבאים למרכז ניהול המטלות</h3>
+                </div>
+                <div className="bg-white/80 dark:bg-slate-800/80 p-8 rounded-[2.5rem] shadow-xl border border-white/50 dark:border-slate-700">
+                  <p className="text-lg md:text-xl text-gray-600 dark:text-slate-300 leading-relaxed font-bold">
+                    מערכת זו פותחה עבורכם, הסטודנטים לקרימינולוגיה, במטרה לרכז את כל חומרי הלימוד, המטלות והמבחנים תחת קורת גג אחת חכמה, מהירה ונגישה מכל מכשיר.
+                  </p>
+                </div>
+              </section>
+
+              {/* Dashboard & Progress Section */}
+              <section className="relative animate-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '100ms' }}>
                 <div className="flex items-center gap-4 mb-8">
                   <div className="p-3 bg-cyan-100 dark:bg-cyan-900/30 rounded-2xl border border-cyan-200 dark:border-cyan-800">
                     <Layout className="w-7 h-7 text-cyan-600 dark:text-cyan-400" />
                   </div>
-                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">לוח בקרה ודאשבורד (Dashboard)</h3>
+                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">לוח בקרה חכם (Dashboard)</h3>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 hover:border-cyan-500 transition-all group">
-                    <div className="flex items-center gap-3 mb-3">
-                      <Target className="w-6 h-6 text-red-500" />
-                      <h4 className="font-black text-xl text-gray-800 dark:text-white">היעד הבא (Upcoming Task)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-slate-700 group hover:border-cyan-500 transition-all">
+                    <div className="flex items-center gap-4 mb-5">
+                      <Target className="w-8 h-8 text-red-500" />
+                      <h4 className="font-black text-xl text-gray-800 dark:text-white">זיהוי יעד דחוף</h4>
                     </div>
-                    <p className="text-gray-600 dark:text-slate-300 font-medium leading-relaxed">המערכת מזהה אוטומטית את המשימה הקרובה ביותר ומציגה אותה בראש המסך. אם המועד בטווח של 5 ימים, הטקסט יהבהב באדום (Urgent) כדי להדגיש דחיפות.</p>
+                    <p className="text-gray-600 dark:text-slate-300 font-medium leading-relaxed">
+                      המערכת סורקת את כל המשימות ומציגה את ה-"Target" הבא שלכם בראש המסך. 
+                      <br/><span className="text-red-500 font-black">שימו לב:</span> אם נותרו פחות מ-5 ימים, שם המקצוע יהבהב באדום בוהק להגברת הערנות.
+                    </p>
                   </div>
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 hover:border-cyan-500 transition-all group">
-                    <div className="flex items-center gap-3 mb-3">
-                      <TrendingUp className="w-6 h-6 text-green-500" />
-                      <h4 className="font-black text-xl text-gray-800 dark:text-white">מד התקדמות חשמלי</h4>
+                  <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-slate-700 group hover:border-cyan-500 transition-all">
+                    <div className="flex items-center gap-4 mb-5">
+                      <Zap className="w-8 h-8 text-yellow-400 animate-pulse" />
+                      <h4 className="font-black text-xl text-gray-800 dark:text-white">אחוז ביצוע חשמלי</h4>
                     </div>
-                    <p className="text-gray-600 dark:text-slate-300 font-medium leading-relaxed">כרטיסיית "אחוז ביצוע" כוללת אפקט ברקים (Lightning) דינמי המשתנה ככל שמתקדמים במשימות. המטרה: לראות 100% וחשמל בעיניים!</p>
+                    <p className="text-gray-600 dark:text-slate-300 font-medium leading-relaxed">
+                      מד ההתקדמות אינו סטטי. ככל שתסמנו משימות כ-"בוצע", אחוז הביצוע יעלה וכרטיסיית הסטטיסטיקה תציג אפקט ברקים דינמי המסמל את "עוצמת הלמידה" שלכם.
+                    </p>
                   </div>
                 </div>
               </section>
 
-              <section className="relative animate-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '100ms' }}>
+              {/* Task Management Section */}
+              <section className="relative animate-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '200ms' }}>
                 <div className="flex items-center gap-4 mb-8">
                   <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl border border-indigo-200 dark:border-indigo-800">
-                    <Presentation className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+                    <FileBox className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
                   </div>
                   <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">ניהול משימות וקורסים</h3>
                 </div>
-                <div className="space-y-6">
-                  <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-slate-700">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      <div>
-                        <h4 className="font-black text-xl text-indigo-600 dark:text-indigo-300 mb-4 flex items-center gap-2"><Phone className="w-5 h-5" /> יצירת קשר עם מרצים</h4>
-                        <p className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed font-medium">לחיצה על אייקון הטלפון או המייל תפתח חלונית תקשורת מהירה. ניתן להתקשר ישירות מהאפליקציה או לשלוח מייל מבלי להקליד כתובות ידנית.</p>
+                <div className="space-y-8">
+                  <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-xl border border-gray-100 dark:border-slate-700">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                      <div className="space-y-3">
+                        <div className="w-12 h-12 bg-green-50 dark:bg-green-900/20 rounded-xl flex items-center justify-center text-green-600"><Phone className="w-6 h-6" /></div>
+                        <h4 className="font-black text-lg text-gray-800 dark:text-white">תקשורת מהירה</h4>
+                        <p className="text-xs text-gray-500 dark:text-slate-400 leading-relaxed">לחיצה על הטלפון או המייל פותחת חיוג ישיר או כתיבת הודעה למרצה ללא צורך בהעתקה ידנית.</p>
                       </div>
-                      <div>
-                        <h4 className="font-black text-xl text-indigo-600 dark:text-indigo-300 mb-4 flex items-center gap-2"><Calendar className="w-5 h-5" /> סנכרון ליומן (Google Calendar)</h4>
-                        <p className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed font-medium">כפתור היומן מייצר אירוע מוכן ביומן האישי שלכם עם כל פרטי המשימה, שם המרצה וקישור למערכת. פשוט שומרים ושוכחים!</p>
+                      <div className="space-y-3">
+                        <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center text-blue-600"><Calendar className="w-6 h-6" /></div>
+                        <h4 className="font-black text-lg text-gray-800 dark:text-white">סנכרון ליומן</h4>
+                        <p className="text-xs text-gray-500 dark:text-slate-400 leading-relaxed">כפתור ה-Calendar מייצר אוטומטית אירוע ביומן ה-Google שלכם עם כל פרטי המשימה והקישורים הרלוונטיים.</p>
+                      </div>
+                      <div className="space-y-3">
+                        <div className="w-12 h-12 bg-purple-50 dark:bg-purple-900/20 rounded-xl flex items-center justify-center text-purple-600"><Sparkles className="w-6 h-6" /></div>
+                        <h4 className="font-black text-lg text-gray-800 dark:text-white">חומרים ודגשים</h4>
+                        <p className="text-xs text-gray-500 dark:text-slate-400 leading-relaxed">לחיצה על "חומרים ודגשים" תפתח עולם של סיכומי הגדרות, מצגות מאוגדות, הקלטות זום וקבצי PDF בלעדיים.</p>
                       </div>
                     </div>
                   </div>
                 </div>
               </section>
 
-              <section className="relative animate-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '200ms' }}>
+              {/* Exam Simulator Section */}
+              <section className="relative animate-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '300ms' }}>
                 <div className="flex items-center gap-4 mb-8">
                   <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-2xl border border-orange-200 dark:border-orange-800">
-                    <Rocket className="w-7 h-7 text-orange-600 dark:text-orange-400" />
+                    <BrainCircuit className="w-7 h-7 text-orange-600 dark:text-orange-400" />
                   </div>
-                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">סימולטור המבחנים והיכל התהילה</h3>
+                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">סימולטור המבחנים (The Simulator)</h3>
                 </div>
-                <div className="bg-gradient-to-br from-orange-500/5 to-red-500/5 p-8 rounded-[3rem] border-2 border-orange-200 dark:border-orange-900/30">
-                  <div className="space-y-8">
-                    <div className="flex flex-col md:flex-row gap-6">
-                      <div className="flex-1">
-                        <h4 className="font-black text-xl text-orange-600 mb-3 flex items-center gap-2"><BrainCircuit className="w-6 h-6" /> תרגול למבחן (Simulator)</h4>
-                        <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">הסימולטור כולל מאות שאלות אמריקאיות ברמות קושי שונות. בסיום המבחן, הציון שלכם יישמר במערכת וידרג אתכם מול שאר הסטודנטים בקורס.</p>
+                <div className="bg-gradient-to-br from-orange-500/10 to-red-600/10 p-10 rounded-[3rem] border-2 border-orange-300/30 shadow-2xl relative overflow-hidden">
+                  <div className="absolute -top-10 -left-10 w-40 h-40 bg-orange-400/10 blur-3xl rounded-full"></div>
+                  <div className="flex flex-col md:flex-row gap-10 relative z-10">
+                    <div className="flex-1 space-y-6">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 bg-orange-500 rounded-lg text-white shadow-lg shadow-orange-500/30"><Shuffle className="w-6 h-6" /></div>
+                        <h4 className="font-black text-2xl text-gray-800 dark:text-white">תרגול אינסופי</h4>
                       </div>
-                      <div className="flex-1">
-                        <h4 className="font-black text-xl text-yellow-600 mb-3 flex items-center gap-2"><Trophy className="w-6 h-6" /> היכל התהילה (Hall of Fame)</h4>
-                        <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">טבלת המובילים (Leaderboard) מציגה את 10 הסטודנטים עם הציון הגבוה ביותר בכל קורס. זכיתם במקומות 1-3? האפליקציה תציין זאת בחגיגת גביע מיוחדת!</p>
+                      <p className="text-gray-700 dark:text-slate-200 font-medium leading-loose">
+                        הסימולטור מציג שאלות בסדר אקראי (Shuffle). לכל שאלה מוצמד <b>הסבר מקצועי</b> המופיע מיד לאחר המענה, כדי שתוכלו ללמוד מהטעויות בזמן אמת. הממשק מעוצב כ-"Forward-only" כדי לדמות תנאי בחינה אמיתיים.
+                      </p>
+                    </div>
+                    <div className="flex-1 space-y-6">
+                      <div className="flex items-center gap-4">
+                        <div className="p-2 bg-yellow-500 rounded-lg text-white shadow-lg shadow-yellow-500/30"><Trophy className="w-6 h-6" /></div>
+                        <h4 className="font-black text-2xl text-gray-800 dark:text-white">היכל התהילה</h4>
                       </div>
+                      <p className="text-gray-700 dark:text-slate-200 font-medium leading-loose">
+                        בסיום התרגול, הציון שלכם נשמר במערכת הענן. 10 הסטודנטים המובילים יזכו להופיע בטבלת ה-Elite של הקורס. זכייה באחד משלושת המקומות הראשונים תפעיל <b>חגיגת "Crown"</b> מיוחדת על המסך שלכם!
+                      </p>
                     </div>
                   </div>
                 </div>
               </section>
 
-              <section className="relative animate-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '300ms' }}>
+              {/* Advanced Features Section */}
+              <section className="relative animate-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '400ms' }}>
                 <div className="flex items-center gap-4 mb-8">
                   <div className="p-3 bg-slate-200 dark:bg-slate-700 rounded-2xl border border-slate-300 dark:border-slate-600">
                     <Wrench className="w-7 h-7 text-slate-700 dark:text-slate-200" />
                   </div>
-                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">כלים נוספים והתקנה</h3>
+                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">תכונות מתקדמות ומצב עבודה</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700">
-                    <h4 className="font-black text-lg text-indigo-500 mb-3 flex items-center gap-2"><Target className="w-5 h-5" /> מצב מיקוד (Focus)</h4>
-                    <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">טיימר 25 דקות (שיטת פומודורו) לחסימת הסחות דעת ולמידה אפקטיבית.</p>
+                  {/* Focus Card */}
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-lg border-2 border-transparent hover:border-indigo-500/50 transition-all group">
+                    <div className="w-14 h-14 bg-red-50 dark:bg-red-900/20 rounded-2xl flex items-center justify-center text-red-500 mb-4 group-hover:scale-110 transition-transform">
+                      <Target className="w-8 h-8" />
+                    </div>
+                    <h4 className="font-black text-xl text-gray-800 dark:text-white mb-2">מצב מיקוד (Focus Mode)</h4>
+                    <p className="text-sm text-gray-500 dark:text-slate-400 font-medium leading-relaxed">
+                      טיימר פומודורו מובנה של 25 דקות. הפעלתו תחסום את כל המערכת ותשאיר רק טיימר ענק, כדי להכניס אתכם ל-"Zone" של למידה ללא הפרעות.
+                    </p>
                   </div>
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700">
-                    <h4 className="font-black text-lg text-indigo-500 mb-3 flex items-center gap-2"><Smartphone className="w-5 h-5" /> התקנת PWA</h4>
-                    <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">לחצו על האייקון בתחתית המסך כדי להפוך את האתר לאפליקציה בטלפון (אייקון במסך הבית).</p>
+                  {/* Dark Mode Card */}
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-lg border-2 border-transparent hover:border-yellow-500/50 transition-all group">
+                    <div className="w-14 h-14 bg-yellow-50 dark:bg-yellow-900/20 rounded-2xl flex items-center justify-center text-yellow-600 mb-4 group-hover:scale-110 transition-transform">
+                      <Moon className="w-8 h-8" />
+                    </div>
+                    <h4 className="font-black text-xl text-gray-800 dark:text-white mb-2">מצב לילה (Dark View)</h4>
+                    <p className="text-sm text-gray-500 dark:text-slate-400 font-medium leading-relaxed">
+                      ממשק כהה ויוקרתי השומר על העיניים שלכם בלילות שלפני בחינות. המעבר מתבצע בלחיצת כפתור אחת בתחתית המסך.
+                    </p>
                   </div>
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700">
-                    <h4 className="font-black text-lg text-indigo-500 mb-3 flex items-center gap-2"><Moon className="w-5 h-5" /> מצב לילה</h4>
-                    <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">למידה בשעות הקטנות? מצב הלילה ישמור לכם על העיניים בעיצוב כהה וחדשני.</p>
+                  {/* PWA Card */}
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-lg border-2 border-transparent hover:border-green-500/50 transition-all group">
+                    <div className="w-14 h-14 bg-green-50 dark:bg-green-900/20 rounded-2xl flex items-center justify-center text-green-600 mb-4 group-hover:scale-110 transition-transform">
+                      <SmartphoneNfc className="w-8 h-8" />
+                    </div>
+                    <h4 className="font-black text-xl text-gray-800 dark:text-white mb-2">התקנה כאפליקציה</h4>
+                    <p className="text-sm text-gray-500 dark:text-slate-400 font-medium leading-relaxed">
+                      המערכת תומכת ב-PWA. לחצו על אייקון ה-"אפליקציה" בתחתית כדי להוסיף את האתר למסך הבית שלכם ולהשתמש בו כאפליקציה טבעית (Native App).
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {/* Troubleshooting/Security Section */}
+              <section className="relative animate-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '500ms' }}>
+                <div className="bg-slate-800 dark:bg-black/40 p-8 rounded-[2.5rem] border-2 border-slate-700 shadow-xl flex flex-col md:flex-row items-center gap-8">
+                  <div className="w-20 h-20 bg-slate-700 rounded-3xl flex items-center justify-center text-cyan-400 shadow-inner">
+                    <ShieldAlert className="w-10 h-10" />
+                  </div>
+                  <div className="flex-1 text-center md:text-right">
+                    <h4 className="font-black text-2xl text-white mb-2">אבטחה ופרטיות</h4>
+                    <p className="text-slate-400 text-sm leading-relaxed">
+                      כל הפעולות שלכם במערכת (כניסות, ציוני סימולטור, עדכונים) מתועדות ב-Live לצורך שיפור חוויית המשתמש ומניעת כניסות לא מורשות. המערכת מזהה אוטומטית כניסה ממחשב או טלפון ומבצעת התאמות תצוגה בהתאם.
+                    </p>
                   </div>
                 </div>
               </section>
 
             </div>
             
+            {/* Footer of the Modal */}
             <div className="p-8 bg-white dark:bg-slate-900 border-t dark:border-slate-800 shrink-0 flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="text-right">
-                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Developer Signature</p>
-                <p className="text-sm font-bold text-gray-600 dark:text-slate-300 flex items-center gap-2"><Terminal className="w-4 h-4 text-[#6c5ce7]" /> 2026 צחי אלבז - מערכות מידע</p>
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em] mb-1">Lead Developer</p>
+                <p className="text-sm font-bold text-gray-600 dark:text-slate-300 flex items-center gap-2">
+                  <Terminal className="w-4 h-4 text-[#6c5ce7]" /> 2026 צחי אלבז - פיתוח מערכות למידה
+                </p>
               </div>
-              <button onClick={() => setIsGuideModalOpen(false)} className="w-full md:w-auto bg-gradient-to-r from-cyan-600 to-indigo-600 text-white px-12 py-5 rounded-[2rem] font-black text-2xl shadow-xl shadow-indigo-600/30 transition-all active:scale-95 hover:scale-102 flex items-center justify-center gap-4 order-1 md:order-2">
-                <span>יאללה, בואו נתחיל!</span>
-                <CheckCircle2 className="w-7 h-7" />
+              <button 
+                onClick={() => setIsGuideModalOpen(false)} 
+                className="w-full md:w-auto bg-gradient-to-r from-cyan-600 via-[#6c5ce7] to-indigo-600 text-white px-16 py-6 rounded-[2rem] font-black text-2xl shadow-[0_20px_40px_rgba(108,92,231,0.3)] transition-all active:scale-95 hover:scale-[1.02] flex items-center justify-center gap-4 group"
+              >
+                <span>יאללה, למשימות!</span>
+                <Rocket className="w-8 h-8 group-hover:translate-x-2 group-hover:-translate-y-2 transition-transform duration-500" />
               </button>
             </div>
           </div>
@@ -1440,7 +1510,7 @@ const App: React.FC = () => {
                   </div>
                   {/* Fixed Footer for Question Navigation */}
                   <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-xl border-t border-gray-100 dark:border-slate-800 flex flex-col items-center z-50">
-                      <button onClick={nextQuestion} className={`w-full max-w-4xl bg-[#6c5ce7] hover:bg-[#5a4bcf] text-white py-5 md:py-6 rounded-[2rem] font-black text-lg md:text-2xl shadow-[0_15px_40px_rgba(108,92,231,0.3)] hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-4 group`}>
+                      <button onClick={nextQuestion} className={`w-full max-w-3xl bg-[#6c5ce7] hover:bg-[#5a4bcf] text-white py-5 md:py-6 rounded-[2rem] font-black text-lg md:text-2xl shadow-[0_15px_40px_rgba(108,92,231,0.3)] hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-4 group`}>
                         <span>שאלה הבאה ⬅️</span>
                       </button>
                   </div>
