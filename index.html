@@ -80,8 +80,12 @@
         to { transform: rotate(360deg); }
       }
       @keyframes blink-red {
-        0%, 100% { opacity: 1; color: #ef4444; }
-        50% { opacity: 0.4; color: #991b1b; }
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+      }
+      @keyframes gentle-blue-pulse-bg {
+        0%, 100% { background-color: #2563eb; }
+        50% { background-color: #3b82f6; }
       }
       @keyframes text-glint-continuous-anim {
         0% { background-position: 200% 0; }
@@ -113,7 +117,6 @@
         100% { transform: translateY(-100%); }
       }
       .animate-ticker-up {
-        /* Speed slowed down from 12s to 30s as requested */
         animation: ticker-up 30s linear infinite;
       }
       
@@ -140,7 +143,10 @@
         animation: breathe-image 5s infinite ease-in-out;
       }
       .animate-blink-red {
-        animation: blink-red 1s infinite;
+        animation: blink-red 1.5s infinite ease-in-out;
+      }
+      .animate-blue-gentle {
+        animation: gentle-blue-pulse-bg 2s infinite ease-in-out;
       }
       .animate-neon-glow {
         animation: neon-slow-glow 4s infinite ease-in-out;

@@ -1,3 +1,4 @@
+
 import { 
   CheckCircle2, 
   Monitor, 
@@ -73,7 +74,8 @@ import {
   Lightbulb,
   Command,
   Activity,
-  ChevronLeft
+  ChevronLeft,
+  FileBox
 } from 'lucide-react';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -86,6 +88,7 @@ import { POLICE_AND_SOCIETY_CONTENT } from './knowledge';
 
 // API Configuration (Google Apps Script)
 const API_URL = "https://script.google.com/macros/s/AKfycbzXOXrmmlaC3HCVpP4fi5VY1jNN9xIiiV3VqbqjmY2-JVY2Whg65VUFZGKt0cGHz4GY/exec";
+const MATERIALS_API_URL = "https://script.google.com/macros/s/AKfycbwPCi66_bRdmu8xk0HQDamBLJQcFOgFTt7PlJ0OMpOIDtgVmQwUsE2_iCyuB6Q-eBFr/exec";
 
 // LocalStorage versioning key
 const STORAGE_KEY = 'tzachi_exams_v13_4';
@@ -169,6 +172,7 @@ const StatCard = ({ label, value, subValue, subValueClass, sideImage, isLoading,
 
 const cleanSubjectName = (subject: string) => {
   if (!subject) return '';
+  // Enhanced cleaning to remove emojis, symbols and extra whitespace for perfect API matching
   return subject.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|\u200D|[\u2600-\u27BF]|[\u2300-\u23FF]|[\u2B50\u2B55]|[\u2190-\u21FF]/g, '').trim();
 };
 
@@ -205,6 +209,12 @@ interface ChatMessage {
   timestamp: number;
 }
 
+interface ExternalMaterial {
+  name: string;
+  active: boolean;
+  filesList: { name: string; link: string; dateCreated?: string }[];
+}
+
 const App: React.FC = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginName, setLoginName] = useState(() => localStorage.getItem('user_name') || '');
@@ -216,6 +226,9 @@ const App: React.FC = () => {
   const [shareEmail, setShareEmail] = useState('');
   const [topLeaders, setTopLeaders] = useState<any[]>([]);
   const [activeSemester, setActiveSemester] = useState<'a' | 'b' | 'summer'>('a');
+  
+  // Dynamic Materials State (API Data)
+  const [apiMaterials, setApiMaterials] = useState<ExternalMaterial[]>([]);
 
   // AI Smart Study Hub State
   const [aiCategories, setAiCategories] = useState<AICategory[]>([
@@ -229,6 +242,23 @@ const App: React.FC = () => {
   const [isAiAnswering, setIsAiAnswering] = useState(false);
   const [aiCooldown, setAiCooldown] = useState(0);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Fetch dynamic materials from GAS URL with handling for the categories wrapper
+  useEffect(() => {
+    const fetchMaterials = async () => {
+      try {
+        const data = await fetchWithRetry(MATERIALS_API_URL);
+        if (data && data.categories && Array.isArray(data.categories)) {
+          setApiMaterials(data.categories);
+        } else if (data && Array.isArray(data)) {
+          setApiMaterials(data);
+        }
+      } catch (err) {
+        console.warn("Dynamic materials fetch failed:", err);
+      }
+    };
+    fetchMaterials();
+  }, []);
 
   // AI Cooldown effect
   useEffect(() => {
@@ -514,7 +544,7 @@ const App: React.FC = () => {
     }
     const subject = encodeURIComponent("לינק לאתר ניהול המטלות - קרימינולוגיה");
     const body = encodeURIComponent(`היי, מצורף לינק לאתר ניהול המטלות לקרימינולוגיה:\nhttps://sensational-babka-0a548f.netlify.app/\n\nבהצלחה!`);
-    window.open(`mailto:${shareEmail}?subject=${subject}&body=${body}`, '_self');
+    window.open(`mailto:${shareEmail}?subject=${subject}?body=${body}`, '_self');
   };
 
   const toggleMaintenanceMode = async () => {
@@ -750,6 +780,13 @@ const App: React.FC = () => {
     }
   };
 
+  const prevQuestion = () => {
+    if (quizIdx > 0) {
+      setQuizIdx(prev => prev - 1);
+      setSelectedAnswer(null);
+    }
+  };
+
   const returnToMoedA = (id: number) => { 
     setExams(prev => prev.map(e => e.id === id ? { ...e, status: 'active', date: e.originalDate || e.date, completedAt: undefined } : e)); 
   };
@@ -949,34 +986,34 @@ ${contextInjection}
           <div className="mb-4 flex flex-col items-center"><div className="bg-white/80 dark:bg-slate-800/80 px-8 py-3 rounded-full border border-[#6c5ce7]/30 shadow-lg backdrop-blur-md animate-soft-pulse flex items-center gap-4 group transition-all hover:border-[#6c5ce7]"><div className="relative"><Users className="w-6 h-6 text-[#6c5ce7] group-hover:scale-110 transition-transform" /><div className="absolute -top-1 -right-1 w-2 h-2 bg-green-50 rounded-full animate-ping"></div></div><span className="text-sm md:text-base font-black text-gray-500 dark:text-slate-300 uppercase tracking-widest">כניסות:</span><span className="text-2xl font-black text-[#6c5ce7] dark:text-[#a29bfe] tabular-nums drop-shadow-sm">{isStatsLoading ? <Loader2 className="w-6 h-6 animate-spin inline opacity-20" /> : totalEntries}</span></div></div>
           <h1 className="text-3xl md:text-5xl font-black mb-6 w-full text-center mt-2"><span className="text-glint-continuous text-[#6c5ce7] dark:text-[#a29bfe]">מערכת ניהול משימות - קרימינולוגיה</span></h1>
           
-          {/* Semester Selector Buttons */}
-          <div className="flex justify-center gap-4 mb-10 w-full max-w-2xl px-4 overflow-x-auto py-4">
+          {/* Semester Selector Buttons - Responsive Fix */}
+          <div className="flex justify-center gap-2 md:gap-4 mb-10 w-full max-w-2xl px-2 md:px-4 py-4 overflow-hidden">
             <button 
-              className="min-w-[140px] py-4 px-6 rounded-2xl font-black text-lg transition-all relative overflow-hidden bg-gradient-to-br from-[#6c5ce7] to-[#8e44ad] text-white shadow-[0_0_20px_rgba(108,92,231,0.6)] border-2 border-indigo-400/30 active:scale-95 group"
+              className="flex-1 md:flex-none min-w-[95px] md:min-w-[140px] py-3 md:py-4 px-2 md:px-6 rounded-2xl font-black text-sm md:text-lg transition-all relative overflow-hidden bg-gradient-to-br from-[#6c5ce7] to-[#8e44ad] text-white shadow-[0_0_20px_rgba(108,92,231,0.6)] border-2 border-indigo-400/30 active:scale-95 group"
               onClick={() => setActiveSemester('a')}
             >
               <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="flex items-center justify-center gap-2 relative z-10">
-                <Sparkles className="w-5 h-5 animate-pulse text-yellow-300" />
-                <span>סמסטר א'</span>
+              <div className="flex items-center justify-center gap-1 md:gap-2 relative z-10">
+                <Sparkles className="w-3 h-3 md:w-5 md:h-5 animate-pulse text-yellow-300" />
+                <span className="truncate">סמסטר א'</span>
               </div>
-              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1/2 h-1 bg-yellow-300 rounded-full shadow-[0_0_10px_#f1c40f]" />
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1/2 h-1 bg-yellow-300 rounded-full shadow-[0_0_100px_#f1c40f]" />
             </button>
             
             <button 
               disabled 
-              className="min-w-[140px] py-4 px-6 rounded-2xl font-black text-lg bg-gray-200 dark:bg-slate-700/50 text-gray-400 dark:text-slate-500 border-2 border-transparent cursor-not-allowed opacity-60 flex items-center justify-center gap-2"
+              className="flex-1 md:flex-none min-w-[95px] md:min-w-[140px] py-3 md:py-4 px-2 md:px-6 rounded-2xl font-black text-sm md:text-lg bg-gray-200 dark:bg-slate-700/50 text-gray-400 dark:text-slate-500 border-2 border-transparent cursor-not-allowed opacity-60 flex items-center justify-center gap-1 md:gap-2"
             >
-              <Lock className="w-4 h-4" />
-              <span>סמסטר ב'</span>
+              <Lock className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="truncate">סמסטר ב'</span>
             </button>
             
             <button 
               disabled 
-              className="min-w-[140px] py-4 px-6 rounded-2xl font-black text-lg bg-gray-200 dark:bg-slate-700/50 text-gray-400 dark:text-slate-500 border-2 border-transparent cursor-not-allowed opacity-60 flex items-center justify-center gap-2"
+              className="flex-1 md:flex-none min-w-[95px] md:min-w-[140px] py-3 md:py-4 px-2 md:px-6 rounded-2xl font-black text-sm md:text-lg bg-gray-200 dark:bg-slate-700/50 text-gray-400 dark:text-slate-500 border-2 border-transparent cursor-not-allowed opacity-60 flex items-center justify-center gap-1 md:gap-2"
             >
-              <Lock className="w-4 h-4" />
-              <span>סמסטר קיץ</span>
+              <Lock className="w-3 h-3 md:w-4 md:h-4" />
+              <span className="truncate">קיץ</span>
             </button>
           </div>
 
@@ -1003,7 +1040,7 @@ ${contextInjection}
                </div>
                <div className="w-full md:w-[280px] bg-gradient-to-br from-[#6c5ce7]/30 to-cyan-500/20 p-6 rounded-[2.5rem] border border-white/20 text-center backdrop-blur-xl relative overflow-hidden">
                  <button onClick={() => openHallOfFame("משטרה וחברה")} className="w-full hover:scale-105 transition-transform group">
-                   <h3 className="text-yellow-400 font-black mb-1 flex items-center justify-center gap-2 relative z-10 group-hover:drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]"><Crown className="w-5 h-5" /><span>היכל התהילה</span></h3>
+                   <h3 className="text-yellow-400 font-black mb-1 flex items-center justify-center gap-2 relative z-10 group-hover:drop-shadow-[0_0_100px_rgba(250,204,21,0.5)]"><Crown className="w-5 h-5" /><span>היכל התהילה</span></h3>
                    <p className="text-[10px] text-gray-400 font-bold mb-4 relative z-10">משטרה וחברה</p>
                  </button>
                  <div className="space-y-3 relative z-10 max-h-[250px] overflow-y-auto custom-scrollbar px-1">{topLeaders.slice(0, 3).map((item, i) => (<div key={i} className="flex items-center justify-between bg-white/10 px-4 py-2 rounded-xl border border-white/5 hover:bg-white/20 transition-all"><div className="flex items-center gap-2"><span className="text-lg">{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : <span className="text-[10px] text-white/50 font-mono">#{i + 1}</span>}</span><span className="text-xs font-black text-white truncate max-w-[90px]">{item.name}</span></div><span className="text-xs font-black text-cyan-400">{item.points} נק'</span></div>))}{topLeaders.length === 0 && !isStatsLoading && <p className="text-xs text-slate-500 italic">ממתינים לאלופים...</p>}{isStatsLoading && <Loader2 className="w-5 h-5 animate-spin mx-auto text-cyan-400" />}</div><p className="mt-4 text-[10px] text-slate-400 font-bold uppercase tracking-widest animate-pulse relative z-10">כל הכבוד למצטיינים</p>
@@ -1018,9 +1055,30 @@ ${contextInjection}
             {sortedActive.map(exam => {
               const diff = getDaysDiff(exam.date);
               const isUrgent = diff <= 5;
-              const hasContent = (exam.link && exam.link !== '#') || (exam.adminNote && exam.adminNote.length > 50);
               const isBlueScreen = exam.subject.includes('💻');
               const canPractice = exam.id === 2 || exam.id === 3;
+              
+              const cleanName = cleanSubjectName(exam.subject);
+              const apiMatch = apiMaterials.find(m => cleanSubjectName(m.name) === cleanName);
+              const hasExternalFiles = apiMatch && apiMatch.active && apiMatch.filesList && apiMatch.filesList.length > 0;
+              const hasInternalNote = exam.adminNote && exam.adminNote.length > 10;
+              
+              const specialSubjects = ['מבוא למשפט עברי'];
+              const isSpecial = specialSubjects.includes(cleanName);
+              
+              let btnBaseColor = "bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500 cursor-not-allowed";
+              let btnTitle = "אין חומרים כרגע";
+
+              if (hasExternalFiles) {
+                btnBaseColor = "bg-[#2563eb] text-white hover:bg-blue-700 hover:shadow-blue-500/50 shadow-lg";
+                btnTitle = "חומרים ודגשים ✨";
+              } else if (isSpecial) {
+                btnBaseColor = "bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500 cursor-not-allowed";
+                btnTitle = "אין חומרים כרגע";
+              } else if (hasInternalNote) {
+                btnBaseColor = "bg-[#6c5ce7] text-white hover:bg-[#5a4bcf] hover:shadow-[#6c5ce7]/50 shadow-lg";
+                btnTitle = "חומרים ודגשים ✨";
+              }
 
               return (
                 <div key={exam.id} className="relative bg-white/90 dark:bg-[#1e293b]/90 backdrop-blur-xl p-8 rounded-[2.5rem] shadow-2xl border-2 border-white/50 dark:border-slate-700/50 flex flex-col md:flex-row items-center justify-between gap-8 group hover:shadow-xl transition-all duration-300">
@@ -1038,7 +1096,18 @@ ${contextInjection}
                      <div className={`text-base font-bold mt-1 ${isUrgent ? 'text-red-500 animate-blink-red' : 'text-green-600'}`}>בעוד {diff} ימים</div>
                   </div>
                   <div className="flex flex-col gap-3 w-full md:w-auto items-center min-w-[220px]">
-                    <button onClick={() => { if(hasContent) { setSelectedExam(exam); setShowZoomLinkBox(false); setIsInfoModalOpen(true); } }} className={`${hasContent ? 'bg-[#6c5ce7] text-white hover:bg-[#5a4bcf] hover:shadow-[#6c5ce7]/50' : 'bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500'} p-4 rounded-2xl font-black text-sm transition-all w-full shadow-lg hover:scale-105`}>חומרים ודגשים ✨</button>
+                    <button 
+                      onClick={() => { 
+                        if(hasExternalFiles || (hasInternalNote && !isSpecial)) { 
+                          setSelectedExam(exam); 
+                          setShowZoomLinkBox(false); 
+                          setIsInfoModalOpen(true); 
+                        } 
+                      }} 
+                      className={`p-4 rounded-2xl font-black text-sm transition-all w-full hover:scale-105 ${btnBaseColor}`}
+                    >
+                      {btnTitle}
+                    </button>
                     
                     {canPractice && (
                       <>
@@ -1107,9 +1176,9 @@ ${contextInjection}
                       </div>
                       <div className="p-4 md:p-6 flex flex-col md:flex-row justify-between items-center gap-4">
                           <div className="flex gap-2 w-full md:w-auto">
-                              <button onClick={shufflePractice} className="flex-1 md:flex-none bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md"><Shuffle className="w-4 h-4" /><span className="inline">ערבב שאלות</span></button>
-                              <button onClick={() => openHallOfFame(currentQuizTitle)} className="flex-1 md:flex-none bg-yellow-500 hover:bg-yellow-600 text-white px-5 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md"><Trophy className="w-4 h-4" /><span>היכל התהילה</span></button>
-                              <button onClick={finishQuiz} disabled={isSubmittingScore} className={`flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md ${isSubmittingScore ? 'opacity-70 animate-pulse' : ''}`}>{isSubmittingScore ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}<span>סיים ושמור ציון</span></button>
+                              <button onClick={() => setIsDelinquencyQuizOpen(false)} className="flex-1 md:flex-none bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-5 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md"><X className="w-4 h-4" /><span>סגור</span></button>
+                              <button onClick={shufflePractice} className="flex-1 md:flex-none bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md"><Shuffle className="w-4 h-4" /><span className="inline">ערבב</span></button>
+                              <button onClick={finishQuiz} disabled={isSubmittingScore} className={`flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md ${isSubmittingScore ? 'opacity-70 animate-pulse' : ''}`}>{isSubmittingScore ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}<span>סיים ושמור</span></button>
                           </div>
                           <div className="text-right w-full md:w-auto flex items-center gap-4 justify-between md:justify-end">
                               <div className="flex items-center gap-2">
@@ -1147,8 +1216,11 @@ ${contextInjection}
                         </div>
                       )}
                   </div>
-                  {/* Fixed Footer for Next Question Button */}
-                  <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-xl border-t border-gray-100 dark:border-slate-800 flex justify-center z-50">
+                  {/* Fixed Footer for Question Navigation */}
+                  <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-xl border-t border-gray-100 dark:border-slate-800 flex flex-col md:flex-row gap-4 justify-center z-50">
+                      <button onClick={prevQuestion} disabled={quizIdx === 0} className={`w-full max-w-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white py-4 md:py-6 rounded-[2rem] font-black text-lg shadow-md transition-all flex items-center justify-center gap-4 group ${quizIdx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:scale-[1.01] active:scale-95'}`}>
+                        <span>➡️ שאלה קודמת</span>
+                      </button>
                       <button onClick={nextQuestion} className={`w-full max-w-2xl bg-[#6c5ce7] hover:bg-[#5a4bcf] text-white py-5 md:py-6 rounded-[2rem] font-black text-lg md:text-2xl shadow-[0_15px_40px_rgba(108,92,231,0.3)] hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-4 group`}>
                         <span>שאלה הבאה ⬅️</span>
                       </button>
@@ -1163,7 +1235,7 @@ ${contextInjection}
            <div className="relative z-10 bg-white/10 dark:bg-slate-900/60 backdrop-blur-2xl w-full max-w-2xl md:rounded-[3rem] h-full md:h-[85vh] shadow-[0_0_100px_rgba(108,92,231,0.4)] border-x md:border-4 border-[#6c5ce7]/30 flex flex-col text-right overflow-hidden animate-shiny-rise pt-24 md:pt-0">
               <div className="p-6 md:p-8 flex justify-between items-center bg-gradient-to-b from-black/40 to-transparent"><button onClick={() => setIsHallOfFameOpen(false)} className="w-12 h-12 bg-white/10 hover:bg-red-500 rounded-full flex items-center justify-center text-white transition-all shadow-xl hover:scale-110 active:scale-90"><X className="w-6 h-6" /></button><div className="text-right"><h2 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-white to-yellow-600 flex items-center gap-3 justify-end drop-shadow-2xl"><Trophy className="w-10 h-10 text-yellow-500 animate-bounce" /><span>היכל התהילה</span></h2><p className="text-lg md:text-xl text-cyan-400 font-black tracking-widest mt-1 uppercase">{currentHallOfFameSubject}</p></div></div>
               <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 space-y-4">
-                {loadingHallOfFame ? (<div className="space-y-4">{[1, 2, 3, 4, 5, 6].map(i => (<div key={i} className="h-24 bg-slate-700/30 rounded-[2rem] animate-pulse flex items-center justify-between px-8"><div className="w-14 h-14 bg-slate-600/40 rounded-full" /><div className="flex-1 mr-6 h-8 bg-slate-600/40 rounded-full" /><div className="w-20 h-10 bg-slate-600/40 rounded-full" /></div>))}</div>) : hallOfFameData.length > 0 ? (<div className="space-y-4 animate-in fade-in duration-700">{hallOfFameData.map((s, i) => { const isCurrentUser = s.name === loginName; let rankStyle = "bg-white/5 border-white/10 hover:bg-white/10"; let medalIcon = <span className="text-slate-400 font-black text-xl">#{i + 1}</span>; let glowClass = ""; if (i === 0) { rankStyle = "bg-yellow-400/10 border-yellow-400/50 shadow-[0_0_20px_rgba(250,204,21,0.2)]"; medalIcon = <span className="text-4xl">🥇</span>; } else if (i === 1) { rankStyle = "bg-slate-200/10 border-slate-300/50"; medalIcon = <span className="text-4xl">🥈</span>; } else if (i === 2) { rankStyle = "bg-orange-400/10 border-orange-400/50"; medalIcon = <span className="text-4xl">🥉</span>; } if (isCurrentUser) { glowClass = "ring-4 ring-blue-500 ring-opacity-60 shadow-[0_0_40px_rgba(59,130,246,0.7)] !bg-blue-600/20 !border-blue-400"; } return (<div key={i} className={`p-6 rounded-[2.5rem] border-2 flex items-center justify-between shadow-xl transform transition-all hover:scale-[1.03] active:scale-95 group ${rankStyle} ${glowClass}`}><div className="flex items-center gap-4 md:gap-6"><div className="w-16 h-16 rounded-full bg-black/20 flex items-center justify-center shadow-inner ring-2 ring-white/5 group-hover:rotate-12 transition-transform">{medalIcon}</div><div className="text-right"><div className={`font-black text-xl md:text-3xl leading-none ${isCurrentUser ? 'text-blue-400 drop-shadow-[0_0_10px_rgba(59,130,246,0.5)]' : 'text-white'}`}>{s.name} {isCurrentUser && <span className="text-sm font-bold text-blue-300 mr-2">(זה אתה!)</span>}</div><div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mt-1">Student Performance Rank</div></div></div><div className={`text-3xl md:text-6xl font-black tabular-nums transition-colors ${i === 0 ? 'text-yellow-400' : isCurrentUser ? 'text-blue-400' : 'text-cyan-400'}`}><AnimatedScore target={s.points} /></div></div>); })}</div>) : (<div className="flex flex-col items-center justify-center py-20 text-center space-y-6"><div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center animate-pulse"><History className="w-12 h-12 text-slate-600" /></div><p className="text-2xl text-slate-400 font-black tracking-widest italic max-sm:text-xl">עדיין אין מצטיינים במקצוע זה, בואו להיות הראשונים!</p></div>)}
+                {loadingHallOfFame ? (<div className="space-y-4">{[1, 2, 3, 4, 5, 6].map(i => (<div key={i} className="h-24 bg-slate-700/30 rounded-[2rem] animate-pulse flex items-center justify-between px-8"><div className="w-14 h-14 bg-slate-600/40 rounded-full" /><div className="flex-1 mr-6 h-8 bg-slate-600/40 rounded-full" /><div className="w-20 h-10 bg-slate-600/40 rounded-full" /></div>))}</div>) : hallOfFameData.length > 0 ? (<div className="space-y-4 animate-in fade-in duration-700">{hallOfFameData.map((s, i) => { const isCurrentUser = s.name === loginName; let rankStyle = "bg-white/5 border-white/10 hover:bg-white/10"; let medalIcon = <span className="text-slate-400 font-black text-xl">#{i + 1}</span>; let glowClass = ""; if (i === 0) { rankStyle = "bg-yellow-400/10 border-yellow-400/50 shadow-[0_0_20px_rgba(250,204,21,0.2)]"; medalIcon = <span className="text-4xl">🥇</span>; } else if (i === 1) { rankStyle = "bg-slate-200/10 border-slate-300/50"; medalIcon = <span className="text-4xl">🥈</span>; } else if (i === 2) { rankStyle = "bg-orange-400/10 border-orange-400/50"; medalIcon = <span className="text-4xl">🥉</span>; } if (isCurrentUser) { glowClass = "ring-4 ring-blue-500 ring-opacity-60 shadow-[0_0_40px_rgba(59,130,246,0.7)] !bg-blue-600/20 !border-blue-400"; } return (<div key={i} className={`p-6 rounded-[2.5rem] border-2 flex items-center justify-between shadow-xl transform transition-all hover:scale-[1.03] active:scale-95 group ${rankStyle} ${glowClass}`}><div className="flex items-center gap-4 md:gap-6"><div className="w-16 h-16 rounded-full bg-black/20 flex items-center justify-center shadow-inner ring-2 ring-white/5 group-hover:rotate-12 transition-transform">{medalIcon}</div><div className="text-right"><div className={`font-black text-xl md:text-3xl leading-none ${isCurrentUser ? 'text-blue-400 drop-shadow-[0_0_100px_rgba(59,130,246,0.5)]' : 'text-white'}`}>{s.name} {isCurrentUser && <span className="text-sm font-bold text-blue-300 mr-2">(זה אתה!)</span>}</div><div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mt-1">Student Performance Rank</div></div></div><div className={`text-3xl md:text-6xl font-black tabular-nums transition-colors ${i === 0 ? 'text-yellow-400' : isCurrentUser ? 'text-blue-400' : 'text-cyan-400'}`}><AnimatedScore target={s.points} /></div></div>); })}</div>) : (<div className="flex flex-col items-center justify-center py-20 text-center space-y-6"><div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center animate-pulse"><History className="w-12 h-12 text-slate-600" /></div><p className="text-2xl text-slate-400 font-black tracking-widest italic max-sm:text-xl">עדיין אין מצטיינים במקצוע זה, בואו להיות הראשונים!</p></div>)}
               </div>
               <div className="p-8 bg-gradient-to-t from-black/60 to-transparent mt-auto"><button onClick={() => setIsHallOfFameOpen(false)} className="w-full bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-[0_15px_30px_rgba(108,92,231,0.4)] transition-all hover:scale-102 active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest"><RefreshCcw className="w-8 h-8" /><span>חזרה</span></button></div>
            </div>
@@ -1172,13 +1244,113 @@ ${contextInjection}
 
       {isInfoModalOpen && selectedExam && (
         <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#1e293b] w-full max-w-2xl rounded-[2.5rem] p-8 shadow-2xl relative border-4 border-[#00b894] overflow-y-auto max-h-[90vh] text-right transition-all"><button onClick={() => setIsInfoModalOpen(false)} className="absolute top-6 left-6 text-3xl opacity-30 hover:opacity-100 transition-all dark:text-slate-100">✕</button><h2 className="text-3xl font-black text-[#00b894] mb-6 border-b pb-4">{selectedExam.subject}</h2><div className="p-8 bg-green-50/50 dark:bg-green-900/10 border-r-8 border-[#00b894] rounded-2xl mb-10 shadow-inner"><span className="block font-black mb-4 text-[#00b894] text-2xl">📚 דגשים:</span><div className="whitespace-pre-line text-lg leading-relaxed text-gray-800 dark:text-slate-200 font-medium">{selectedExam.adminNote}</div></div><div className="mt-auto flex flex-col gap-4"><button onClick={() => { if (selectedExam.link && selectedExam.link !== '#') { setIsInfoModalOpen(false); setIsMaterialPreviewOpen(true); } }} className={`w-full py-5 rounded-[2rem] font-black text-center shadow-xl flex items-center justify-center gap-3 text-xl transition-all ${selectedExam.link === '#' ? 'bg-gray-200 dark:bg-slate-700 text-gray-400 dark:text-slate-500 cursor-not-allowed' : 'bg-[#6c5ce7] text-white hover:scale-102'}`}><span>{selectedExam.linkTitle || 'פתח חומר לימוד מלא'}</span><span>✨</span></button>{selectedExam.id === 2 && (<><a href="https://1drv.ms/p/c/1122f8b51af83346/IQAYa7h8BdDERaPoOE9gbHxAAVfxReRnZmz6fN-tqM12of8?e=awivpN" target="_blank" className="w-full bg-gradient-to-r from-blue-400 to-indigo-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl"><Presentation className="w-6 h-6" /><span>איסוף מצגות מקורי 📁</span></a><a href="https://1drv.ms/w/c/1122f8b51af83346/IQBMIZaV3YkiQJCkvHflYrYvAY0fhSLVvbHRIF3p58YC1Z8?e=uLQjHo" target="_blank" className="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl"><FileText className="w-6 h-6" /><span>סיכום הגדרות ממוקד</span></a><button onClick={() => { setIsInfoModalOpen(false); startQuiz("עבריינות והערכת מסוכנות"); }} className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-orange-500/20"><span>תרגול למבחן 🎯</span></button></>)}{selectedExam.id === 3 && (<><a href="https://1drv.ms/w/c/1122f8b51af83346/IQAk6cUNVLAMTIHfVuu2frQcAeXJZOF4NKx2PEfm6Tavfx8?e=3nhVx4" target="_blank" className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-purple-500/20"><FileText className="w-6 h-6" /><span>סיכום סופי 📄</span></a><a href="https://1drv.ms/w/c/1122f8b51af83346/IQAerq4iwxYdSa4DItVqaD_yAXozXa1bpl21VannYwa_g9w?e=hVdRZG" target="_blank" className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-blue-500/20"><FileText className="w-6 h-6" /><span>סיכום הגדרות 📑</span></a><button onClick={() => { setIsInfoModalOpen(false); startQuiz("משטרה וחברה"); }} className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-orange-500/20"><span>תרגול למבחן 🎯</span></button><button onClick={() => setShowZoomLinkBox(!showZoomLinkBox)} className="w-full bg-gradient-to-r from-blue-500 to-indigo-700 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-blue-500/30"><Video className="w-6 h-6" /><span>זום חזרה למבחן 🎥</span></button>{showZoomLinkBox && (<div className="bg-slate-100 dark:bg-slate-800 p-6 rounded-[2rem] border-2 border-indigo-200 dark:border-slate-700 mt-2 space-y-4 animate-in zoom-in duration-300"><div className="text-right text-sm font-bold text-gray-500 mb-1">קישור להקלטה:</div><div className="bg-white dark:bg-slate-900 p-4 rounded-xl text-xs font-mono break-all text-[#6c5ce7] dark:text-indigo-300 border border-indigo-100 dark:border-slate-700">{policeZoomLink}</div><div className="flex gap-3"><button onClick={() => handleCopyValue(policeZoomLink)} className="flex-1 bg-white dark:bg-slate-700 border-2 border-indigo-200 dark:border-slate-600 py-3 rounded-xl font-black text-gray-700 dark:text-white flex items-center justify-center gap-2 hover:bg-indigo-50 transition-all shadow-sm"><Copy className="w-4 h-4" /><span>{copyFeedback || 'העתק לינק'}</span></button><button onClick={() => window.open(policeZoomLink, '_blank')} className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-black flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg"><ExternalLink className="w-4 h-4" /><span>העבר לאתר</span></button></div></div>)}</>)}<button onClick={() => setIsInfoModalOpen(false)} className="w-full bg-slate-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 py-4 rounded-[2rem] font-black text-center border-2 border-slate-200 dark:border-slate-700 transition-all shadow-sm active:scale-95 text-lg">חזרה</button></div></div>
+          <div className="bg-white dark:bg-[#1e293b] w-full max-w-2xl rounded-[2.5rem] p-8 shadow-2xl relative border-4 border-[#00b894] overflow-y-auto max-h-[90vh] text-right transition-all">
+            <button onClick={() => setIsInfoModalOpen(false)} className="absolute top-6 left-6 text-3xl opacity-30 hover:opacity-100 transition-all dark:text-slate-100">✕</button>
+            
+            <div className="mb-6 border-b pb-4">
+              <h2 className="text-3xl font-black text-[#00b894]">{selectedExam.subject}</h2>
+            </div>
+            
+            {/* Local Notes Section */}
+            {selectedExam.adminNote && selectedExam.adminNote.length > 5 && (
+              <div className="p-8 bg-green-50/50 dark:bg-green-900/10 border-r-8 border-[#00b894] rounded-2xl mb-8 shadow-inner">
+                <span className="block font-black mb-4 text-[#00b894] text-2xl">📚 דגשים:</span>
+                <div className="whitespace-pre-line text-lg leading-relaxed text-gray-800 dark:text-slate-200 font-medium">
+                    {(() => {
+                        const cleanName = cleanSubjectName(selectedExam.subject);
+                        if (cleanName === "מבוא למשפט עברי") {
+                          return ""; 
+                        }
+                        return selectedExam.adminNote;
+                    })()}
+                </div>
+              </div>
+            )}
+
+            {/* Dynamic Files Section from API */}
+            {(() => {
+              const match = apiMaterials.find(m => cleanSubjectName(m.name) === cleanSubjectName(selectedExam.subject));
+              if (match && match.filesList && match.filesList.length > 0) {
+                return (
+                  <div className="mb-10">
+                    <span className="block font-black mb-4 text-[#2563eb] text-2xl flex items-center gap-2">
+                      <FileBox className="w-6 h-6" /> חומרים להורדה ({match.filesList.length}):
+                    </span>
+                    <div className="grid grid-cols-1 gap-4">
+                      {match.filesList.map((file, idx) => {
+                        // Check if file is "New" (less than 24h old)
+                        const isNew = file.dateCreated && (Date.now() - new Date(file.dateCreated).getTime()) < 24 * 60 * 60 * 1000;
+                        
+                        return (
+                          <a 
+                            key={idx} 
+                            href={file.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className={`w-full relative bg-blue-600 dark:bg-blue-700 border-2 border-blue-400 dark:border-blue-500 text-white p-5 rounded-2xl font-black text-center shadow-lg transition-all flex items-center justify-between group active:scale-[0.98] hover:shadow-2xl hover:bg-blue-700 ${isNew ? 'animate-blue-gentle' : ''}`}
+                          >
+                            <span className="flex items-center gap-3">
+                              <div className="p-2 bg-white/20 rounded-lg shadow-sm group-hover:animate-bounce">
+                                  <Download className="w-5 h-5" />
+                              </div>
+                              {file.name}
+                            </span>
+                            <div className="flex items-center gap-4">
+                               {isNew && (
+                                 <span className="bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-[0_0_10px_rgba(220,38,38,0.6)] animate-blink-red">חדש!</span>
+                               )}
+                               <ExternalLink className="w-4 h-4 opacity-50" />
+                            </div>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            <div className="mt-auto flex flex-col gap-4">
+              {selectedExam.id === 2 && (
+                <>
+                  <a href="https://1drv.ms/p/c/1122f8b51af83346/IQAYa7h8BdDERaPoOE9gbHxAAVfxReRnZmz6fN-tqM12of8?e=awivpN" target="_blank" className="w-full bg-gradient-to-r from-blue-400 to-indigo-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl"><Presentation className="w-6 h-6" /><span>איסוף מצגות מקורי 📁</span></a>
+                  <a href="https://1drv.ms/w/c/1122f8b51af83346/IQBMIZaV3YkiQJCkvHflYrYvAY0fhSLVvbHRIF3p58YC1Z8?e=uLQjHo" target="_blank" className="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl"><FileText className="w-6 h-6" /><span>סיכום הגדרות ממוקד</span></a>
+                  <button onClick={() => { setIsInfoModalOpen(false); startQuiz("עבריינות והערכת מסוכנות"); }} className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-orange-500/20"><span>תרגול למבחן 🎯</span></button>
+                </>
+              )}
+              
+              {selectedExam.id === 3 && (
+                <>
+                  <a href="https://1drv.ms/w/c/1122f8b51af83346/IQAk6cUNVLAMTIHfVuu2frQcAeXJZOF4NKx2PEfm6Tavfx8?e=3nhVx4" target="_blank" className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-purple-500/20"><FileText className="w-6 h-6" /><span>סיכום סופי 📄</span></a>
+                  <a href="https://1drv.ms/w/c/1122f8b51af83346/IQAerq4iwxYdSa4DItVqaD_yAXozXa1bpl21VannYwa_g9w?e=hVdRZG" target="_blank" className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-blue-500/20"><FileText className="w-6 h-6" /><span>סיכום הגדרות 📑</span></a>
+                  <button onClick={() => { setIsInfoModalOpen(false); startQuiz("משטרה וחברה"); }} className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-orange-500/20"><span>תרגול למבחן 🎯</span></button>
+                  <button onClick={() => setShowZoomLinkBox(!showZoomLinkBox)} className="w-full bg-gradient-to-r from-blue-500 to-indigo-700 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-blue-500/30"><Video className="w-6 h-6" /><span>זום חזרה למבחן 🎥</span></button>
+                  {showZoomLinkBox && (
+                    <div className="bg-slate-100 dark:bg-slate-800 p-6 rounded-[2rem] border-2 border-indigo-200 dark:border-slate-700 mt-2 space-y-4 animate-in zoom-in duration-300">
+                      <div className="text-right text-sm font-bold text-gray-500 mb-1">קישור להקלטה:</div>
+                      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl text-xs font-mono break-all text-[#6c5ce7] dark:text-indigo-300 border border-indigo-100 dark:border-slate-700">{policeZoomLink}</div>
+                      <div className="flex gap-3">
+                        <button onClick={() => handleCopyValue(policeZoomLink)} className="flex-1 bg-white dark:bg-slate-700 border-2 border-indigo-200 dark:border-slate-600 py-3 rounded-xl font-black text-gray-700 dark:text-white flex items-center justify-center gap-2 hover:bg-indigo-50 transition-all shadow-sm">
+                          <Copy className="w-4 h-4" /><span>{copyFeedback || 'העתק לינק'}</span>
+                        </button>
+                        <button onClick={() => window.open(policeZoomLink, '_blank')} className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-black flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg">
+                          <ExternalLink className="w-4 h-4" /><span>העבר לאתר</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              <button onClick={() => setIsInfoModalOpen(false)} className="w-full bg-slate-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 py-4 rounded-[2rem] font-black text-center border-2 border-slate-200 dark:border-slate-700 transition-all shadow-sm active:scale-95 text-lg">חזרה</button>
+            </div>
+          </div>
         </div>
       )}
 
       {isMaterialPreviewOpen && selectedExam && (
         <div className="fixed inset-0 z-[700] bg-black/70 backdrop-blur-md flex items-center justify-center p-2 md:p-6" dir="rtl">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-5xl rounded-[2.5rem] shadow-2xl relative flex flex-col h-[90vh] overflow-hidden animate-[pop-in_0.4s_ease-out]"><div className="p-4 md:p-6 border-b dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 sticky top-0 z-10"><div className="flex items-center gap-4"><a href={getDriveFileInfo(selectedExam.link)?.download || selectedExam.link} target="_blank" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 md:px-8 py-3 rounded-2xl font-black text-sm md:text-lg flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20 active:scale-95"><Download className="w-5 h-5" /><span>📥 הורד למחשב / לנייד</span></a></div><div className="flex-1 px-4 text-center hidden md:block"><h2 className="text-xl font-black text-gray-800 dark:text-white truncate max-w-sm mx-auto">{selectedExam.subject}</h2></div><button onClick={() => setIsMaterialPreviewOpen(false)} className="w-12 h-12 bg-slate-100 dark:bg-slate-800 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center text-slate-500 transition-all active:scale-90"><X className="w-6 h-6" /></button></div><div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 space-y-8"><div className="bg-slate-50 dark:bg-slate-800/50 p-6 md:p-8 rounded-[2rem] border border-slate-100 dark:border-slate-700 shadow-inner"><div className="flex items-center gap-3 mb-4"><div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl"><FileText className="w-6 h-6 text-indigo-600" /></div><h3 className="text-xl font-black text-gray-800 dark:text-white">תקציר ודגשים</h3></div><div className="text-lg md:text-xl text-gray-700 dark:text-slate-300 leading-relaxed font-medium whitespace-pre-line">{selectedExam.adminNote || "אין הערות נוספות לחומר זה."}</div></div>{getDriveFileInfo(selectedExam.link) ? (<div className="flex-1 min-h-[500px] bg-slate-100 dark:bg-slate-800 rounded-[2.5rem] overflow-hidden border-4 border-slate-200 dark:border-slate-700 shadow-2xl relative"><iframe src={getDriveFileInfo(selectedExam.link)?.preview} className="w-full h-full border-none" allow="autoplay" loading="lazy" /><div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-white text-[10px] font-bold">מציג קובץ ישירות מגוגל דרייב</div></div>) : (<div className="flex flex-col items-center justify-center py-20 bg-slate-50 dark:bg-slate-800/20 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-700 text-center"><ExternalLink className="w-16 h-16 text-slate-300 mb-4" /><p className="text-xl font-bold text-slate-500">הקובץ אינו תומך בתצוגה פנימית ישירה.</p><a href={selectedExam.link} target="_blank" className="mt-6 text-indigo-600 font-black underline">לחץ כאן לפתיחה בחלון חדש</a></div>)}</div></div>
+          <div className="bg-white dark:bg-slate-900 w-full max-5xl rounded-[2.5rem] shadow-2xl relative flex flex-col h-[90vh] overflow-hidden animate-[pop-in_0.4s_ease-out]"><div className="p-4 md:p-6 border-b dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 sticky top-0 z-10"><div className="flex items-center gap-4"><a href={getDriveFileInfo(selectedExam.link)?.download || selectedExam.link} target="_blank" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 md:px-8 py-3 rounded-2xl font-black text-sm md:text-lg flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20 active:scale-95"><Download className="w-5 h-5" /><span>📥 הורד למחשב / לנייד</span></a></div><div className="flex-1 px-4 text-center hidden md:block"><h2 className="text-xl font-black text-gray-800 dark:text-white truncate max-w-sm mx-auto">{selectedExam.subject}</h2></div><button onClick={() => setIsMaterialPreviewOpen(false)} className="w-12 h-12 bg-slate-100 dark:bg-slate-800 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center text-slate-500 transition-all active:scale-90"><X className="w-6 h-6" /></button></div><div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 space-y-8"><div className="bg-slate-50 dark:bg-slate-800/50 p-6 md:p-8 rounded-[2rem] border border-slate-100 dark:border-slate-700 shadow-inner"><div className="flex items-center gap-3 mb-4"><div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl"><FileText className="w-6 h-6 text-indigo-600" /></div><h3 className="text-xl font-black text-gray-800 dark:text-white">תקציר ודגשים</h3></div><div className="text-lg md:text-xl text-gray-700 dark:text-slate-300 leading-relaxed font-medium whitespace-pre-line">{selectedExam.adminNote || "אין הערות נוספות לחומר זה."}</div></div>{getDriveFileInfo(selectedExam.link) ? (<div className="flex-1 min-h-[500px] bg-slate-100 dark:bg-slate-800 rounded-[2.5rem] overflow-hidden border-4 border-slate-200 dark:border-slate-700 shadow-2xl relative"><iframe src={getDriveFileInfo(selectedExam.link)?.preview} className="w-full h-full border-none" allow="autoplay" loading="lazy" /><div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-white text-[10px] font-bold">מציג קובץ ישירות מגוגל דרייב</div></div>) : (<div className="flex flex-col items-center justify-center py-20 bg-slate-50 dark:bg-slate-800/20 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-700 text-center"><ExternalLink className="w-16 h-16 text-slate-300 mb-4" /><p className="text-xl font-bold text-slate-500">הקובץ אינו תומך בתצוגה פנימית ישירה.</p><a href={selectedExam.link} target="_blank" className="mt-6 text-indigo-600 font-black underline">לחץ כאן לפתיחה בחלון חדש</a></div>)}</div></div>
         </div>
       )}
 
@@ -1196,7 +1368,7 @@ ${contextInjection}
 
       {isGuideModalOpen && (
         <div className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-2 md:p-6" dir="rtl">
-          <div className="bg-slate-50 dark:bg-[#0f172a] w-full max-w-5xl rounded-[3rem] shadow-[0_0_120px_rgba(108,92,231,0.5)] relative border-t-[14px] border-[#6c5ce7] flex flex-col h-full md:h-[92vh] overflow-hidden animate-[pop-in_0.4s_ease-out]">
+          <div className="bg-slate-50 dark:bg-[#0f172a] w-full max-5xl rounded-[3rem] shadow-[0_0_120px_rgba(108,92,231,0.5)] relative border-t-[14px] border-[#6c5ce7] flex flex-col h-full md:h-[92vh] overflow-hidden animate-[pop-in_0.4s_ease-out]">
             
             {/* Header */}
             <div className="p-6 md:p-10 bg-white dark:bg-slate-900 flex items-center justify-between border-b dark:border-slate-800 shrink-0 relative overflow-hidden">
