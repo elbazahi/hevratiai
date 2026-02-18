@@ -215,6 +215,7 @@ const App: React.FC = () => {
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const [shareEmail, setShareEmail] = useState('');
   const [topLeaders, setTopLeaders] = useState<any[]>([]);
+  const [activeSemester, setActiveSemester] = useState<'a' | 'b' | 'summer'>('a');
 
   // AI Smart Study Hub State
   const [aiCategories, setAiCategories] = useState<AICategory[]>([
@@ -947,6 +948,38 @@ ${contextInjection}
           <div className="w-full flex justify-center mb-6"><div className="w-full max-w-4xl p-1 bg-white/50 dark:bg-slate-700/50 rounded-[2rem] shadow-2xl border border-white/20"><video src="https://res.cloudinary.com/djmztsgdk/video/upload/v1770587600/acc_logo_vfmhue.mp4" autoPlay muted loop playsInline className="w-full h-auto object-cover rounded-[1.8rem] shadow-inner" /></div></div>
           <div className="mb-4 flex flex-col items-center"><div className="bg-white/80 dark:bg-slate-800/80 px-8 py-3 rounded-full border border-[#6c5ce7]/30 shadow-lg backdrop-blur-md animate-soft-pulse flex items-center gap-4 group transition-all hover:border-[#6c5ce7]"><div className="relative"><Users className="w-6 h-6 text-[#6c5ce7] group-hover:scale-110 transition-transform" /><div className="absolute -top-1 -right-1 w-2 h-2 bg-green-50 rounded-full animate-ping"></div></div><span className="text-sm md:text-base font-black text-gray-500 dark:text-slate-300 uppercase tracking-widest">כניסות:</span><span className="text-2xl font-black text-[#6c5ce7] dark:text-[#a29bfe] tabular-nums drop-shadow-sm">{isStatsLoading ? <Loader2 className="w-6 h-6 animate-spin inline opacity-20" /> : totalEntries}</span></div></div>
           <h1 className="text-3xl md:text-5xl font-black mb-6 w-full text-center mt-2"><span className="text-glint-continuous text-[#6c5ce7] dark:text-[#a29bfe]">מערכת ניהול משימות - קרימינולוגיה</span></h1>
+          
+          {/* Semester Selector Buttons */}
+          <div className="flex justify-center gap-4 mb-10 w-full max-w-2xl px-4 overflow-x-auto py-4">
+            <button 
+              className="min-w-[140px] py-4 px-6 rounded-2xl font-black text-lg transition-all relative overflow-hidden bg-gradient-to-br from-[#6c5ce7] to-[#8e44ad] text-white shadow-[0_0_20px_rgba(108,92,231,0.6)] border-2 border-indigo-400/30 active:scale-95 group"
+              onClick={() => setActiveSemester('a')}
+            >
+              <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center justify-center gap-2 relative z-10">
+                <Sparkles className="w-5 h-5 animate-pulse text-yellow-300" />
+                <span>סמסטר א'</span>
+              </div>
+              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1/2 h-1 bg-yellow-300 rounded-full shadow-[0_0_10px_#f1c40f]" />
+            </button>
+            
+            <button 
+              disabled 
+              className="min-w-[140px] py-4 px-6 rounded-2xl font-black text-lg bg-gray-200 dark:bg-slate-700/50 text-gray-400 dark:text-slate-500 border-2 border-transparent cursor-not-allowed opacity-60 flex items-center justify-center gap-2"
+            >
+              <Lock className="w-4 h-4" />
+              <span>סמסטר ב'</span>
+            </button>
+            
+            <button 
+              disabled 
+              className="min-w-[140px] py-4 px-6 rounded-2xl font-black text-lg bg-gray-200 dark:bg-slate-700/50 text-gray-400 dark:text-slate-500 border-2 border-transparent cursor-not-allowed opacity-60 flex items-center justify-center gap-2"
+            >
+              <Lock className="w-4 h-4" />
+              <span>סמסטר קיץ</span>
+            </button>
+          </div>
+
           <div className="text-sm font-bold text-gray-400 dark:text-slate-300 mb-6">שלום, {loginName} {loginName === 'צחיי' ? '👑' : '👋'}</div>
         </header>
 
