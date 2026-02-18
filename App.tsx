@@ -75,7 +75,9 @@ import {
   Command,
   Activity,
   ChevronLeft,
-  FileBox
+  FileBox,
+  Compass,
+  Rocket
 } from 'lucide-react';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -172,7 +174,6 @@ const StatCard = ({ label, value, subValue, subValueClass, sideImage, isLoading,
 
 const cleanSubjectName = (subject: string) => {
   if (!subject) return '';
-  // Enhanced cleaning to remove emojis, symbols and extra whitespace for perfect API matching
   return subject.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|\u200D|[\u2600-\u27BF]|[\u2300-\u23FF]|[\u2B50\u2B55]|[\u2190-\u21FF]/g, '').trim();
 };
 
@@ -227,10 +228,8 @@ const App: React.FC = () => {
   const [topLeaders, setTopLeaders] = useState<any[]>([]);
   const [activeSemester, setActiveSemester] = useState<'a' | 'b' | 'summer'>('a');
   
-  // Dynamic Materials State (API Data)
   const [apiMaterials, setApiMaterials] = useState<ExternalMaterial[]>([]);
 
-  // AI Smart Study Hub State
   const [aiCategories, setAiCategories] = useState<AICategory[]>([
     { id: '1', name: 'משטרה וחברה', active: true, folderId: 'folder_police_society' },
     { id: '2', name: 'בתי סוהר', active: true, folderId: 'folder_prisons' },
@@ -243,7 +242,6 @@ const App: React.FC = () => {
   const [aiCooldown, setAiCooldown] = useState(0);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch dynamic materials from GAS URL with handling for the categories wrapper
   useEffect(() => {
     const fetchMaterials = async () => {
       try {
@@ -260,7 +258,6 @@ const App: React.FC = () => {
     fetchMaterials();
   }, []);
 
-  // AI Cooldown effect
   useEffect(() => {
     if (aiCooldown > 0) {
       const timer = setTimeout(() => setAiCooldown(aiCooldown - 1), 1000);
@@ -268,14 +265,11 @@ const App: React.FC = () => {
     }
   }, [aiCooldown]);
 
-  // Zoom Link Logic
   const [showZoomLinkBox, setShowZoomLinkBox] = useState(false);
   const policeZoomLink = "https://us02web.zoom.us/rec/play/FYORGCW-o7an7CUeH-PQeHzlgKUrwJxWyIlhdwbpT9qslKCfQ9kF5mb5jwoj8qd83TBlAD-XZmxneba4.QVLIzqpeMYTrrjYa";
 
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [showInstructionPopup, setShowInstructionPopup] = useState(false);
-
-  // New state for Material Preview Modal
   const [isMaterialPreviewOpen, setIsMaterialPreviewOpen] = useState(false);
 
   useEffect(() => {
@@ -780,13 +774,6 @@ const App: React.FC = () => {
     }
   };
 
-  const prevQuestion = () => {
-    if (quizIdx > 0) {
-      setQuizIdx(prev => prev - 1);
-      setSelectedAnswer(null);
-    }
-  };
-
   const returnToMoedA = (id: number) => { 
     setExams(prev => prev.map(e => e.id === id ? { ...e, status: 'active', date: e.originalDate || e.date, completedAt: undefined } : e)); 
   };
@@ -821,88 +808,6 @@ const App: React.FC = () => {
       setShowInstructionPopup(true);
     }
   };
-
-  const getDriveFileInfo = (url: string) => {
-    if (!url || !url.includes('drive.google.com')) return null;
-    const idMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-    if (!idMatch) return null;
-    const fileId = idMatch[1];
-    return {
-      id: fileId,
-      preview: `https://drive.google.com/file/d/${fileId}/preview`,
-      download: `https://drive.google.com/uc?export=download&id=${fileId}`
-    };
-  };
-
-  const handleAskAi = async () => {
-    if (!selectedCategory) return alert("בחר נושא לפני שליחת שאלה");
-    if (!aiInputValue.trim()) return;
-    if (aiCooldown > 0) return; // Prevent extra sends
-
-    const userMsg: ChatMessage = { role: 'user', text: aiInputValue, timestamp: Date.now() };
-    setAiChatMessages(prev => [...prev, userMsg]);
-    setAiInputValue('');
-    setIsAiAnswering(true);
-    setAiCooldown(30); // Start 30s timer
-
-    try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      
-      // Select context based on category
-      let contextInjection = "";
-      if (selectedCategory.name.includes("משטרה וחברה")) {
-        contextInjection = `השתמש במידע המקצועי הבא מהסיכום המלא של הקורס (75 עמודים) כדי לענות:
-        ${POLICE_AND_SOCIETY_CONTENT}
-        
-        תמיד תציין על איזה נושא או מודל (למשל מודל POP או מודל ההליך ההוגן) אתה מתבסס בתשובתך.`;
-      }
-
-      const prompt = `אתה עוזר לימודי חכם באתר "מכללה חברתי" של צחי אלבז. 
-הנושא הנבחר הוא: ${selectedCategory.name}.
-השאלה של הסטודנט: ${userMsg.text}
-
-${contextInjection}
-
-הנחיות:
-1. בצע סריקה מעמיקה של החומר שהוזרק לך. 
-2. אם המידע לא מופיע מפורשות בחומרים, ענה על בסיס הידע הכללי הרחב שלך כבינה מלאכותית המתמחה בקרימינולוגיה בישראל.
-3. השב בעברית מקצועית אך נגישה, מותאמת לסטודנטים.
-4. השתמש בפורמט Markdown לתשובה ברורה עם כותרות והדגשות.`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: {
-          systemInstruction: `אתה "העוזר החכם של צחי אלבז" באתר מכללה חברתי. אתה מומחה לקרימינולוגיה ואכיפת חוק בישראל. 
-התפקיד שלך הוא לעזור לסטודנטים להבין מושגים מורכבים ב${selectedCategory.name}. 
-ענה תמיד בנימה מעודדת ומקצועית.`,
-          tools: [{ googleSearch: {} }]
-        },
-      });
-
-      const aiMsg: ChatMessage = { 
-        role: 'ai', 
-        text: response.text || "מצטער, חלה שגיאה בעיבוד התשובה. נסה שוב.", 
-        timestamp: Date.now() 
-      };
-      setAiChatMessages(prev => [...prev, aiMsg]);
-      
-      const grounding = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-      if (grounding && Array.isArray(grounding)) {
-        console.log("Grounding URLs:", grounding);
-      }
-
-    } catch (e) {
-      console.error("AI Error:", e);
-      setAiChatMessages(prev => [...prev, { role: 'ai', text: "שגיאת תקשורת עם מרכז הלמידה. וודא שמפתח ה-API תקין ונסה שוב.", timestamp: Date.now() }]);
-    } finally {
-      setIsAiAnswering(false);
-    }
-  };
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [aiChatMessages, isAiAnswering]);
 
   if (showMaintenanceUI && loginName !== 'צחיי') {
     return (
@@ -986,7 +891,6 @@ ${contextInjection}
           <div className="mb-4 flex flex-col items-center"><div className="bg-white/80 dark:bg-slate-800/80 px-8 py-3 rounded-full border border-[#6c5ce7]/30 shadow-lg backdrop-blur-md animate-soft-pulse flex items-center gap-4 group transition-all hover:border-[#6c5ce7]"><div className="relative"><Users className="w-6 h-6 text-[#6c5ce7] group-hover:scale-110 transition-transform" /><div className="absolute -top-1 -right-1 w-2 h-2 bg-green-50 rounded-full animate-ping"></div></div><span className="text-sm md:text-base font-black text-gray-500 dark:text-slate-300 uppercase tracking-widest">כניסות:</span><span className="text-2xl font-black text-[#6c5ce7] dark:text-[#a29bfe] tabular-nums drop-shadow-sm">{isStatsLoading ? <Loader2 className="w-6 h-6 animate-spin inline opacity-20" /> : totalEntries}</span></div></div>
           <h1 className="text-3xl md:text-5xl font-black mb-6 w-full text-center mt-2"><span className="text-glint-continuous text-[#6c5ce7] dark:text-[#a29bfe]">מערכת ניהול משימות - קרימינולוגיה</span></h1>
           
-          {/* Semester Selector Buttons - Responsive Fix */}
           <div className="flex justify-center gap-2 md:gap-4 mb-10 w-full max-w-2xl px-2 md:px-4 py-4 overflow-hidden">
             <button 
               className="flex-1 md:flex-none min-w-[95px] md:min-w-[140px] py-3 md:py-4 px-2 md:px-6 rounded-2xl font-black text-sm md:text-lg transition-all relative overflow-hidden bg-gradient-to-br from-[#6c5ce7] to-[#8e44ad] text-white shadow-[0_0_20px_rgba(108,92,231,0.6)] border-2 border-indigo-400/30 active:scale-95 group"
@@ -1087,7 +991,7 @@ ${contextInjection}
                     <p className="text-gray-500 dark:text-slate-400 text-lg font-bold">👨‍🏫 {exam.lecturer}</p>
                     <div className="flex gap-4 mt-6 justify-center md:justify-start">
                       {exam.phone && <button onClick={() => setContactModal({ isOpen: true, type: 'phone', value: exam.phone!, title: `טלפון המרצה: ${exam.lecturer}` })} className="w-12 h-12 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-2xl flex items-center justify-center text-2xl hover:scale-110 transition-all border border-green-100 dark:border-green-800 shadow-sm hover:bg-green-600 hover:text-white hover:shadow-green-500/50"><Phone className="w-6 h-6" /></button>}
-                      <button onClick={() => setContactModal({ isOpen: true, type: 'email', value: exam.email, title: `מייל המרצה: ${exam.lecturer}` })} className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-green-400 rounded-2xl flex items-center justify-center text-2xl hover:scale-110 transition-all border border-blue-100 dark:border-green-800 shadow-sm hover:bg-green-600 hover:text-white hover:shadow-green-500/50"><Mail className="w-6 h-6" /></button>
+                      <button onClick={() => setContactModal({ isOpen: true, type: 'email', value: exam.email, title: `מייל המרצה: ${exam.lecturer}` })} className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-green-400 rounded-2xl flex items-center justify-center text-2xl hover:scale-110 transition-all border border-blue-100 dark:border-green-800 shadow-sm hover:bg-indigo-600 hover:text-white hover:shadow-indigo-500/50"><Mail className="w-6 h-6" /></button>
                       <button onClick={() => window.open(createGoogleCalendarUrl(exam), '_blank')} className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center text-2xl hover:scale-110 transition-all border border-indigo-100 dark:border-green-800 shadow-sm hover:bg-indigo-600 hover:text-white hover:shadow-indigo-500/50"><Calendar className="w-6 h-6" /></button>
                     </div>
                   </div>
@@ -1176,7 +1080,6 @@ ${contextInjection}
                       </div>
                       <div className="p-4 md:p-6 flex flex-col md:flex-row justify-between items-center gap-4">
                           <div className="flex gap-2 w-full md:w-auto">
-                              <button onClick={() => setIsDelinquencyQuizOpen(false)} className="flex-1 md:flex-none bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 px-5 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md"><X className="w-4 h-4" /><span>סגור</span></button>
                               <button onClick={shufflePractice} className="flex-1 md:flex-none bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md"><Shuffle className="w-4 h-4" /><span className="inline">ערבב</span></button>
                               <button onClick={finishQuiz} disabled={isSubmittingScore} className={`flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md ${isSubmittingScore ? 'opacity-70 animate-pulse' : ''}`}>{isSubmittingScore ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}<span>סיים ושמור</span></button>
                           </div>
@@ -1217,11 +1120,8 @@ ${contextInjection}
                       )}
                   </div>
                   {/* Fixed Footer for Question Navigation */}
-                  <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-xl border-t border-gray-100 dark:border-slate-800 flex flex-col md:flex-row gap-4 justify-center z-50">
-                      <button onClick={prevQuestion} disabled={quizIdx === 0} className={`w-full max-w-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-white py-4 md:py-6 rounded-[2rem] font-black text-lg shadow-md transition-all flex items-center justify-center gap-4 group ${quizIdx === 0 ? 'opacity-30 cursor-not-allowed' : 'hover:scale-[1.01] active:scale-95'}`}>
-                        <span>➡️ שאלה קודמת</span>
-                      </button>
-                      <button onClick={nextQuestion} className={`w-full max-w-2xl bg-[#6c5ce7] hover:bg-[#5a4bcf] text-white py-5 md:py-6 rounded-[2rem] font-black text-lg md:text-2xl shadow-[0_15px_40px_rgba(108,92,231,0.3)] hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-4 group`}>
+                  <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-xl border-t border-gray-100 dark:border-slate-800 flex flex-col items-center z-50">
+                      <button onClick={nextQuestion} className={`w-full max-w-3xl bg-[#6c5ce7] hover:bg-[#5a4bcf] text-white py-5 md:py-6 rounded-[2rem] font-black text-lg md:text-2xl shadow-[0_15px_40px_rgba(108,92,231,0.3)] hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-4 group`}>
                         <span>שאלה הבאה ⬅️</span>
                       </button>
                   </div>
@@ -1251,7 +1151,6 @@ ${contextInjection}
               <h2 className="text-3xl font-black text-[#00b894]">{selectedExam.subject}</h2>
             </div>
             
-            {/* Local Notes Section */}
             {selectedExam.adminNote && selectedExam.adminNote.length > 5 && (
               <div className="p-8 bg-green-50/50 dark:bg-green-900/10 border-r-8 border-[#00b894] rounded-2xl mb-8 shadow-inner">
                 <span className="block font-black mb-4 text-[#00b894] text-2xl">📚 דגשים:</span>
@@ -1267,7 +1166,6 @@ ${contextInjection}
               </div>
             )}
 
-            {/* Dynamic Files Section from API */}
             {(() => {
               const match = apiMaterials.find(m => cleanSubjectName(m.name) === cleanSubjectName(selectedExam.subject));
               if (match && match.filesList && match.filesList.length > 0) {
@@ -1278,7 +1176,6 @@ ${contextInjection}
                     </span>
                     <div className="grid grid-cols-1 gap-4">
                       {match.filesList.map((file, idx) => {
-                        // Check if file is "New" (less than 24h old)
                         const isNew = file.dateCreated && (Date.now() - new Date(file.dateCreated).getTime()) < 24 * 60 * 60 * 1000;
                         
                         return (
@@ -1348,12 +1245,6 @@ ${contextInjection}
         </div>
       )}
 
-      {isMaterialPreviewOpen && selectedExam && (
-        <div className="fixed inset-0 z-[700] bg-black/70 backdrop-blur-md flex items-center justify-center p-2 md:p-6" dir="rtl">
-          <div className="bg-white dark:bg-slate-900 w-full max-5xl rounded-[2.5rem] shadow-2xl relative flex flex-col h-[90vh] overflow-hidden animate-[pop-in_0.4s_ease-out]"><div className="p-4 md:p-6 border-b dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 sticky top-0 z-10"><div className="flex items-center gap-4"><a href={getDriveFileInfo(selectedExam.link)?.download || selectedExam.link} target="_blank" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 md:px-8 py-3 rounded-2xl font-black text-sm md:text-lg flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20 active:scale-95"><Download className="w-5 h-5" /><span>📥 הורד למחשב / לנייד</span></a></div><div className="flex-1 px-4 text-center hidden md:block"><h2 className="text-xl font-black text-gray-800 dark:text-white truncate max-w-sm mx-auto">{selectedExam.subject}</h2></div><button onClick={() => setIsMaterialPreviewOpen(false)} className="w-12 h-12 bg-slate-100 dark:bg-slate-800 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center text-slate-500 transition-all active:scale-90"><X className="w-6 h-6" /></button></div><div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 space-y-8"><div className="bg-slate-50 dark:bg-slate-800/50 p-6 md:p-8 rounded-[2rem] border border-slate-100 dark:border-slate-700 shadow-inner"><div className="flex items-center gap-3 mb-4"><div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl"><FileText className="w-6 h-6 text-indigo-600" /></div><h3 className="text-xl font-black text-gray-800 dark:text-white">תקציר ודגשים</h3></div><div className="text-lg md:text-xl text-gray-700 dark:text-slate-300 leading-relaxed font-medium whitespace-pre-line">{selectedExam.adminNote || "אין הערות נוספות לחומר זה."}</div></div>{getDriveFileInfo(selectedExam.link) ? (<div className="flex-1 min-h-[500px] bg-slate-100 dark:bg-slate-800 rounded-[2.5rem] overflow-hidden border-4 border-slate-200 dark:border-slate-700 shadow-2xl relative"><iframe src={getDriveFileInfo(selectedExam.link)?.preview} className="w-full h-full border-none" allow="autoplay" loading="lazy" /><div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-4 py-2 rounded-full text-white text-[10px] font-bold">מציג קובץ ישירות מגוגל דרייב</div></div>) : (<div className="flex flex-col items-center justify-center py-20 bg-slate-50 dark:bg-slate-800/20 rounded-[2.5rem] border-2 border-dashed border-slate-200 dark:border-slate-700 text-center"><ExternalLink className="w-16 h-16 text-slate-300 mb-4" /><p className="text-xl font-bold text-slate-500">הקובץ אינו תומך בתצוגה פנימית ישירה.</p><a href={selectedExam.link} target="_blank" className="mt-6 text-indigo-600 font-black underline">לחץ כאן לפתיחה בחלון חדש</a></div>)}</div></div>
-        </div>
-      )}
-
       {isAdminPanelOpen && loginName === 'צחיי' && (
         <div className="fixed inset-0 z-[400] bg-black/40 backdrop-blur-sm flex items-start justify-center p-2 md:p-4 overflow-y-auto" dir="rtl">
           <div className="bg-white dark:bg-slate-900 w-full max-xl rounded-[2.5rem] p-5 md:p-6 shadow-2xl relative border-4 border-[#6c5ce7] animate-[pop-in_0.4s_ease-out] text-right mt-4 md:mt-8 mb-8 max-h-[90vh] flex flex-col overflow-hidden"><button onClick={() => setIsAdminPanelOpen(false)} className="absolute top-4 left-6 text-2xl opacity-40 hover:opacity-100 transition-all dark:text-white z-20">✕</button><div className="flex items-center gap-3 mb-4 border-b border-[#6c5ce7]/20 pb-3"><Settings className="w-5 h-5 text-[#6c5ce7] animate-spin-slow" /><h2 className="text-xl font-black text-[#6c5ce7] dark:text-[#a29bfe]">ניהול מערכת</h2></div><div className="flex-1 overflow-y-auto custom-scrollbar space-y-5 pr-1"><section className="space-y-3"><div className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-[#6c5ce7]" /><h3 className="text-sm font-black text-gray-800 dark:text-white">עדכון מבזקים</h3></div><div className="relative"><textarea value={adminTickerText} onChange={(e) => setAdminTickerText(e.target.value)} placeholder="הזן מבזקים מופרדים ב-(;)" className="w-full h-20 p-3 rounded-xl border-2 border-gray-100 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 font-bold outline-none focus:border-[#6c5ce7] transition-all dark:text-white resize-none text-xs" /></div><button onClick={handleUpdateTicker} disabled={isSavingTicker || isAdminLoadingData} className="w-full bg-[#6c5ce7] text-white py-3 rounded-xl font-black text-sm shadow-md flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 transition-all">{isSavingTicker ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}<span>שמור ועדכן</span></button></section><section className="space-y-2"><div className="bg-gray-50 dark:bg-white/5 p-3 rounded-xl border border-gray-200 dark:border-slate-700 flex items-center justify-between"><div className="flex items-center gap-2"><Power className={`w-4 h-4 ${maintenanceMode ? 'text-red-500' : 'text-green-500'}`} /><span className="text-xs font-black text-gray-800 dark:text-white">מצב תחזוקה</span></div><button onClick={toggleMaintenanceMode} disabled={isUpdatingStatus} className={`w-10 h-5 rounded-full relative transition-all shadow-inner ${maintenanceMode ? 'bg-red-500' : 'bg-green-500'}`}><div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all shadow-md ${maintenanceMode ? 'right-0.5' : 'right-5.5'}`} /></button></div><p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold px-1 italic">כאשר הלחצן אדום - האתר במצב תחזוקה וחסום לגישת משתמשים.</p></section><section className="space-y-3"><div className="flex items-center gap-2"><BarChart className="w-4 h-4 text-orange-500" /><h3 className="text-sm font-black text-gray-800 dark:text-white">סטטיסטיקת כניסות יומית (Live)</h3></div><div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-xl border border-gray-200 dark:border-slate-700 h-[200px] flex items-end justify-between gap-2 relative group overflow-hidden pt-10">{isAdminLoadingData ? (<div className="w-full h-full flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-orange-500 opacity-30" /></div>) : adminGraphData.length > 0 ? (adminGraphData.map((d, i) => { const now = new Date(); const todayLabel = now.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }); const isToday = d.label.includes(todayLabel); return (<div key={i} className="flex-1 flex flex-col items-center gap-2 group/bar h-full justify-end"><div className="relative w-full flex justify-center items-end h-[100px]"><div className={`absolute -top-7 left-1/2 -translate-x-1/2 text-[11px] font-black ${isToday ? 'text-blue-600 scale-110' : 'text-orange-600'} bg-white dark:bg-slate-900 px-2 py-0.5 rounded-lg border shadow-sm z-20 animate-in fade-in zoom-in`}>{d.value}</div><div className={`w-full max-w-[28px] ${isToday ? 'bg-gradient-to-t from-blue-700 via-blue-500 to-blue-300 shadow-[0_0_20px_rgba(59,130,246,0.8)]' : 'bg-gradient-to-t from-orange-600 via-orange-500 to-orange-400'} rounded-t-lg transition-all duration-1000 ease-out h-[${(d.value / maxVisits) * 100}%]`} style={{ height: `${(d.value / Math.max(...adminGraphData.map(v => v.value), 1)) * 100}%` }} /></div><div className={`text-[9px] font-black ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'} uppercase tracking-tighter text-center mt-1`}>{d.label}</div></div>); })) : (<div className="w-full h-full flex items-center justify-center text-xs text-gray-400 italic font-bold">ממתין לנתוני גרף...</div>)}</div></section><section className="space-y-2"><div className="flex items-center gap-2"><History className="w-4 h-4 text-indigo-500" /><h3 className="text-sm font-black text-gray-800 dark:text-white">כניסות אחרונות</h3></div><div className="flex flex-wrap gap-2 mb-2 px-1"><div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div><span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">טלפון</span></div><div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]"></div><span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">מחשב</span></div><div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-yellow-500 shadow-[0_0_5px_rgba(234,179,8,0.5)]"></div><span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">סימולטור</span></div><div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_5px_rgba(168,85,247,0.5)]"></div><span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">ניהול</span></div></div><div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-inner"><div className="max-h-[300px] overflow-y-auto custom-scrollbar"><table className="w-full text-center border-collapse"><thead className="bg-gray-100 dark:bg-slate-700 sticky top-0 z-20"><tr className="text-[10px] font-black text-gray-500 dark:text-slate-100"><th className="py-2 px-1">שם</th><th className="py-2 px-1">פעולה</th><th className="py-2 px-1">תאריך</th><th className="py-2 px-1">שעה</th><th className="py-2 px-1">עיר</th></tr></thead><tbody className="text-[11px]">{isAdminLoadingData ? (<tr><td colSpan={5} className="py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto text-[#6c5ce7]" /></td></tr>) : adminLastEntries.length > 0 ? (adminLastEntries.slice(0, 100).map((user: any, idx: number) => { const action = String(user.userAction || '-'); let badgeColor = 'bg-gray-50 text-gray-600 border-gray-200'; if (action === 'סימולטור') badgeColor = 'bg-yellow-50 text-yellow-600 border-yellow-200'; else if (action === 'טלפון') badgeColor = 'bg-green-50 text-green-600 border-green-200'; else if (action === 'מחשב') badgeColor = 'bg-blue-50 text-blue-600 border-blue-200'; else if (action === 'admin_access') badgeColor = 'bg-purple-50 text-purple-600 border-purple-200'; return (<tr key={idx} className="border-t border-gray-50 dark:border-slate-700 hover:bg-indigo-50/30 transition-colors"><td className="py-2 px-1 font-bold text-gray-800 dark:text-slate-100 truncate max-w-[70px]">{user.userName || '-'}</td><td className="py-2 px-1"><span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black border ${badgeColor}`}>{action}</span></td><td className="py-2 px-1 text-gray-500 tabular-nums">{user.entryDate || '-'}</td><td className="py-2 px-1 tabular-nums text-indigo-600 dark:text-indigo-300 font-bold">{formatOnlyTime(user.entryTime)}</td><td className="py-2 px-1 text-gray-400 truncate max-w-[60px]">{user.userCity || '-'}</td></tr>); })) : (<tr><td colSpan={5} className="py-10 text-gray-400 italic">אין נתונים זמינים</td></tr>)}</tbody></table></div></div></section></div><button onClick={() => setIsAdminPanelOpen(false)} className="mt-4 w-full bg-slate-100 dark:bg-slate-800 text-gray-700 dark:text-white py-3 rounded-xl font-black text-sm active:scale-95 transition-all">סגור חלונית</button></div>
@@ -1369,13 +1260,11 @@ ${contextInjection}
       {isGuideModalOpen && (
         <div className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-2xl flex items-center justify-center p-2 md:p-6" dir="rtl">
           <div className="bg-slate-50 dark:bg-[#0f172a] w-full max-5xl rounded-[3rem] shadow-[0_0_120px_rgba(108,92,231,0.5)] relative border-t-[14px] border-[#6c5ce7] flex flex-col h-full md:h-[92vh] overflow-hidden animate-[pop-in_0.4s_ease-out]">
-            
-            {/* Header */}
             <div className="p-6 md:p-10 bg-white dark:bg-slate-900 flex items-center justify-between border-b dark:border-slate-800 shrink-0 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400 via-[#6c5ce7] to-purple-500 animate-shimmer"></div>
               <div className="flex items-center gap-5">
                 <div className="w-16 h-16 bg-gradient-to-br from-[#6c5ce7] to-indigo-600 rounded-[1.5rem] flex items-center justify-center shadow-2xl shadow-indigo-500/40 animate-soft-pulse">
-                  <Command className="w-9 h-9 text-white" />
+                  <Compass className="w-9 h-9 text-white" />
                 </div>
                 <div className="text-right">
                   <h2 className="text-3xl md:text-5xl font-black text-gray-800 dark:text-white tracking-tighter uppercase italic">Control Center</h2>
@@ -1388,172 +1277,109 @@ ${contextInjection}
                 <X className="w-7 h-7 group-hover:rotate-90 transition-transform duration-300" />
               </button>
             </div>
-
-            {/* Content */}
+            
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-12 space-y-16 hi-tech-grid">
               
-              {/* Mission Management Section */}
               <section className="relative animate-in slide-in-from-bottom-4 duration-500">
                 <div className="flex items-center gap-4 mb-8">
                   <div className="p-3 bg-cyan-100 dark:bg-cyan-900/30 rounded-2xl border border-cyan-200 dark:border-cyan-800">
                     <Layout className="w-7 h-7 text-cyan-600 dark:text-cyan-400" />
                   </div>
-                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">מרכז המשימות והמטלות</h3>
+                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">לוח בקרה ודאשבורד (Dashboard)</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 hover:border-cyan-500 transition-all group">
                     <div className="flex items-center gap-3 mb-3">
-                      <Flame className="w-6 h-6 text-red-500 group-hover:animate-bounce" />
-                      <h4 className="font-black text-xl text-gray-800 dark:text-white">ניהול סדרי עדיפויות</h4>
+                      <Target className="w-6 h-6 text-red-500" />
+                      <h4 className="font-black text-xl text-gray-800 dark:text-white">היעד הבא (Upcoming Task)</h4>
                     </div>
-                    <p className="text-gray-600 dark:text-slate-300 font-medium leading-relaxed">המשימות ממוינות אוטומטית לפי תאריך יעד. משימה שנותרו לה פחות מ-5 ימים תהבהב בטקסט אדום זוהר (Urgent Mode) כדי להבטיח שלא תפספסו אותה.</p>
+                    <p className="text-gray-600 dark:text-slate-300 font-medium leading-relaxed">המערכת מזהה אוטומטית את המשימה הקרובה ביותר ומציגה אותה בראש המסך. אם המועד בטווח של 5 ימים, הטקסט יהבהב באדום (Urgent) כדי להדגיש דחיפות.</p>
                   </div>
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 hover:border-cyan-500 transition-all">
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 hover:border-cyan-500 transition-all group">
                     <div className="flex items-center gap-3 mb-3">
-                      <ExternalLink className="w-6 h-6 text-blue-500" />
-                      <h4 className="font-black text-xl text-gray-800 dark:text-white">גישה לחומרים ודגשים</h4>
+                      <TrendingUp className="w-6 h-6 text-green-500" />
+                      <h4 className="font-black text-xl text-gray-800 dark:text-white">מד התקדמות חשמלי</h4>
                     </div>
-                    <p className="text-gray-600 dark:text-slate-300 font-medium leading-relaxed">לחיצה על "חומרים ודגשים" תפתח חלונית עם פירוט המרצה, דגשים מיוחדים, לינקים לסיכומים ותצוגה מקדימה של קבצי PDF ישירות מגוגל דרייב.</p>
-                  </div>
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 hover:border-cyan-500 transition-all">
-                    <div className="flex items-center gap-3 mb-3">
-                      <Calendar className="w-6 h-6 text-indigo-500" />
-                      <h4 className="font-black text-xl text-gray-800 dark:text-white">סנכרון ליומן Google</h4>
-                    </div>
-                    <p className="text-gray-600 dark:text-slate-300 font-medium leading-relaxed">בכל כרטיס משימה ישנו כפתור יומן. לחיצה עליו תפתח אירוע מוכן ביומן שלכם עם תאריך המבחן/מטלה, שם המרצה ולינק לאתר המערכת.</p>
-                  </div>
-                  <div className="bg-white dark:bg-slate-800 p-6 rounded-[2rem] shadow-sm border border-gray-100 dark:border-slate-700 hover:border-cyan-500 transition-all">
-                    <div className="flex items-center gap-3 mb-3">
-                      <History className="w-6 h-6 text-green-500" />
-                      <h4 className="font-black text-xl text-gray-800 dark:text-white">ארכיון משימות</h4>
-                    </div>
-                    <p className="text-gray-600 dark:text-slate-300 font-medium leading-relaxed">לאחר לחיצה על "סיימתי", המשימה תעבור לאזור הארכיון בתחתית הדף. ניתן להחזיר משימות שהושלמו לרשימה הפעילה בכל עת (למשל לצורך מועד ב').</p>
+                    <p className="text-gray-600 dark:text-slate-300 font-medium leading-relaxed">כרטיסיית "אחוז ביצוע" כוללת אפקט ברקים (Lightning) דינמי המשתנה ככל שמתקדמים במשימות. המטרה: לראות 100% וחשמל בעיניים!</p>
                   </div>
                 </div>
               </section>
 
-              {/* AI Hub Section */}
-              <section className="relative animate-in slide-in-from-bottom-4 duration-700">
+              <section className="relative animate-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '100ms' }}>
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-2xl border border-purple-200 dark:border-purple-800">
-                    <Bot className="w-7 h-7 text-purple-600 dark:text-purple-400" />
+                  <div className="p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl border border-indigo-200 dark:border-indigo-800">
+                    <Presentation className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
                   </div>
-                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">העוזר הלימודי החכם (AI)</h3>
+                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">ניהול משימות וקורסים</h3>
                 </div>
-                <div className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-indigo-900/20 dark:to-purple-900/20 p-8 rounded-[2.5rem] border-2 border-purple-200 dark:border-purple-800 shadow-xl space-y-6">
-                  <div className="flex flex-col md:flex-row gap-8 items-center">
-                    <div className="flex-1 space-y-4 text-right">
-                      <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 font-black italic">
-                        <Sparkles className="w-5 h-5" /> <span>Powered by Google Gemini 3.0</span>
+                <div className="space-y-6">
+                  <div className="bg-white dark:bg-slate-800 p-8 rounded-[2.5rem] shadow-sm border border-gray-100 dark:border-slate-700">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div>
+                        <h4 className="font-black text-xl text-indigo-600 dark:text-indigo-300 mb-4 flex items-center gap-2"><Phone className="w-5 h-5" /> יצירת קשר עם מרצים</h4>
+                        <p className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed font-medium">לחיצה על אייקון הטלפון או המייל תפתח חלונית תקשורת מהירה. ניתן להתקשר ישירות מהאפליקציה או לשלוח מייל מבלי להקליד כתובות ידנית.</p>
                       </div>
-                      <p className="text-lg text-gray-700 dark:text-slate-200 leading-relaxed font-bold italic">
-                        "העוזר החכם שלי הוא לא סתם צ'אט בוט - הוא מומחה לקרימינולוגיה שהוזרק לו הידע המלא מסיכומי הקורס שלכם (75 עמודי תוכן מזוקק)."
-                      </p>
-                      <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <li className="flex items-center gap-3 bg-white/50 dark:bg-black/20 p-4 rounded-2xl"><BrainCircuit className="w-6 h-6 text-purple-500" /><span className="text-sm font-black">סריקת ידע מקצועי ממוקד</span></li>
-                        <li className="flex items-center gap-3 bg-white/50 dark:bg-black/20 p-4 rounded-2xl"><Search className="w-6 h-6 text-blue-500" /><span className="text-sm font-black">גישה לחיפוש Google בזמן אמת</span></li>
-                        <li className="flex items-center gap-3 bg-white/50 dark:bg-black/20 p-4 rounded-2xl"><Clock className="w-6 h-6 text-orange-500" /><span className="text-sm font-black">מערכת Cooldown (30 שניות) למניעת עומס</span></li>
-                        <li className="flex items-center gap-3 bg-white/50 dark:bg-black/20 p-4 rounded-2xl"><FileText className="w-6 h-6 text-green-500" /><span className="text-sm font-black">תשובות בפורמט Markdown קריא ומודגש</span></li>
-                      </ul>
-                    </div>
-                    <div className="w-48 h-48 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center shadow-2xl border-4 border-purple-500/20 relative group">
-                      <div className="absolute inset-0 rounded-full border-2 border-dashed border-purple-500/40 animate-spin-slow"></div>
-                      <Bot className="w-24 h-24 text-purple-600 animate-breathe" />
+                      <div>
+                        <h4 className="font-black text-xl text-indigo-600 dark:text-indigo-300 mb-4 flex items-center gap-2"><Calendar className="w-5 h-5" /> סנכרון ליומן (Google Calendar)</h4>
+                        <p className="text-sm text-gray-500 dark:text-slate-400 leading-relaxed font-medium">כפתור היומן מייצר אירוע מוכן ביומן האישי שלכם עם כל פרטי המשימה, שם המרצה וקישור למערכת. פשוט שומרים ושוכחים!</p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </section>
 
-              {/* Simulator Section */}
-              <section className="relative animate-in slide-in-from-bottom-4 duration-900">
+              <section className="relative animate-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '200ms' }}>
                 <div className="flex items-center gap-4 mb-8">
-                  <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-2xl border border-yellow-200 dark:border-yellow-800">
-                    <Target className="w-7 h-7 text-yellow-600 dark:text-yellow-400" />
+                  <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-2xl border border-orange-200 dark:border-orange-800">
+                    <Rocket className="w-7 h-7 text-orange-600 dark:text-orange-400" />
                   </div>
-                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">סימולטור מבחנים והיכל התהילה</h3>
+                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">סימולטור המבחנים והיכל התהילה</h3>
+                </div>
+                <div className="bg-gradient-to-br from-orange-500/5 to-red-500/5 p-8 rounded-[3rem] border-2 border-orange-200 dark:border-orange-900/30">
+                  <div className="space-y-8">
+                    <div className="flex flex-col md:flex-row gap-6">
+                      <div className="flex-1">
+                        <h4 className="font-black text-xl text-orange-600 mb-3 flex items-center gap-2"><BrainCircuit className="w-6 h-6" /> תרגול למבחן (Simulator)</h4>
+                        <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">הסימולטור כולל מאות שאלות אמריקאיות ברמות קושי שונות. בסיום המבחן, הציון שלכם יישמר במערכת וידרג אתכם מול שאר הסטודנטים בקורס.</p>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-black text-xl text-yellow-600 mb-3 flex items-center gap-2"><Trophy className="w-6 h-6" /> היכל התהילה (Hall of Fame)</h4>
+                        <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">טבלת המובילים (Leaderboard) מציגה את 10 הסטודנטים עם הציון הגבוה ביותר בכל קורס. זכיתם במקומות 1-3? האפליקציה תציין זאת בחגיגת גביע מיוחדת!</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="relative animate-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: '300ms' }}>
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="p-3 bg-slate-200 dark:bg-slate-700 rounded-2xl border border-slate-300 dark:border-slate-600">
+                    <Wrench className="w-7 h-7 text-slate-700 dark:text-slate-200" />
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">כלים נוספים והתקנה</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                   <div className="p-8 bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl border-b-8 border-orange-500 flex flex-col items-center text-center group transition-transform hover:-translate-y-2">
-                     <div className="w-16 h-16 bg-orange-100 dark:bg-orange-900/30 rounded-2xl flex items-center justify-center mb-4"><Shuffle className="w-8 h-8 text-orange-600" /></div>
-                     <h4 className="font-black text-xl mb-3 text-gray-800 dark:text-white">ערבוב שאלות חכם</h4>
-                     <p className="text-sm text-gray-500 dark:text-slate-400 font-bold">הסימולטור יודע לערבב את השאלות והתשובות בכל פעם שתתחילו תרגול חדש, כדי שלא תשננו מיקום אלא ידע.</p>
-                   </div>
-                   <div className="p-8 bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl border-b-8 border-green-500 flex flex-col items-center text-center group transition-transform hover:-translate-y-2">
-                     <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-2xl flex items-center justify-center mb-4"><Lightbulb className="w-8 h-8 text-green-600" /></div>
-                     <h4 className="font-black text-xl mb-3 text-gray-800 dark:text-white">הסברים מקצועיים</h4>
-                     <p className="text-sm text-gray-500 dark:text-slate-400 font-bold">לאחר כל תשובה, המערכת תציג הסבר אקדמי מפורט על הסיבה שהתשובה נכונה, כדי לחזק את הזיכרון הלימודי.</p>
-                   </div>
-                   <div className="p-8 bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl border-b-8 border-blue-500 flex flex-col items-center text-center group transition-transform hover:-translate-y-2">
-                     <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center mb-4"><Crown className="w-8 h-8 text-blue-600" /></div>
-                     <h4 className="font-black text-xl mb-3 text-gray-800 dark:text-white">דירוג אלופים</h4>
-                     <p className="text-sm text-gray-500 dark:text-slate-400 font-bold">בסוף התרגול הציון נשמר ב-Database המרכזי. שלושת הציונים הגבוהים ביותר יופיעו ב"היכל התהילה" של המקצוע.</p>
-                   </div>
-                </div>
-              </section>
-
-              {/* Utility Tools Section */}
-              <section className="relative">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-2xl border border-red-200 dark:border-red-800">
-                    <Wrench className="w-7 h-7 text-red-600 dark:text-red-400" />
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700">
+                    <h4 className="font-black text-lg text-indigo-500 mb-3 flex items-center gap-2"><Target className="w-5 h-5" /> מצב מיקוד (Focus)</h4>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">טיימר 25 דקות (שיטת פומודורו) לחסימת הסחות דעת ולמידה אפקטיבית.</p>
                   </div>
-                  <h3 className="text-2xl md:text-3xl font-black text-gray-800 dark:text-white">כלי עבודה מתקדמים</h3>
-                </div>
-                <div className="bg-slate-900 text-white p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
-                  <div className="absolute top-0 left-0 w-1/3 h-full bg-gradient-to-r from-blue-500/10 to-transparent"></div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10 relative z-10">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-red-600/30 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(220,38,38,0.5)]"><Target className="w-7 h-7 text-red-400" /></div>
-                        <h4 className="text-2xl font-black italic">Focus Mode (25min)</h4>
-                      </div>
-                      <p className="text-slate-400 font-medium leading-relaxed">מצב מיקוד מבוסס שיטת "פומודורו". לחיצה על האייקון 🎯 תחסום את כל האתר ותציג טיימר ענק. אל תצאו מהמסך עד שהזמן נגמר!</p>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-cyan-600/30 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(8,145,178,0.5)]"><SmartphoneNfc className="w-7 h-7 text-cyan-400" /></div>
-                        <h4 className="text-2xl font-black italic">PWA Installation</h4>
-                      </div>
-                      <p className="text-slate-400 font-medium leading-relaxed">ניתן להתקין את האתר כאפליקציה מלאה ב-iPhone וב-Android דרך כפתור "אפליקציה" או דרך הגדרות הדפדפן. כך תקבלו גישה מהירה מהבית.</p>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-green-600/30 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(22,163,74,0.5)]"><Share2 className="w-7 h-7 text-green-400" /></div>
-                        <h4 className="text-2xl font-black italic">Instant Sync</h4>
-                      </div>
-                      <p className="text-slate-400 font-medium leading-relaxed">שלחו את לינק האתר למייל האישי שלכם דרך התיבה בתחתית העמוד. זה יאפשר לכם לעבור בין המחשב (לסיכומים) לנייד (לתרגול) במינימום מאמץ.</p>
-                    </div>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-purple-600/30 rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(147,51,234,0.5)]"><Fingerprint className="w-7 h-7 text-purple-400" /></div>
-                        <h4 className="text-2xl font-black italic">Smart ID Login</h4>
-                      </div>
-                      <p className="text-slate-400 font-medium leading-relaxed">המערכת זוכרת אתכם לפי שם המשתמש שהזנתם בכניסה הראשונה. הנתונים (משימות שסומנו, ציונים) נשמרים בענן ומתעדכנים בלייב.</p>
-                    </div>
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700">
+                    <h4 className="font-black text-lg text-indigo-500 mb-3 flex items-center gap-2"><Smartphone className="w-5 h-5" /> התקנת PWA</h4>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">לחצו על האייקון בתחתית המסך כדי להפוך את האתר לאפליקציה בטלפון (אייקון במסך הבית).</p>
+                  </div>
+                  <div className="bg-white dark:bg-slate-800 p-6 rounded-3xl shadow-sm border border-gray-100 dark:border-slate-700">
+                    <h4 className="font-black text-lg text-indigo-500 mb-3 flex items-center gap-2"><Moon className="w-5 h-5" /> מצב לילה</h4>
+                    <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">למידה בשעות הקטנות? מצב הלילה ישמור לכם על העיניים בעיצוב כהה וחדשני.</p>
                   </div>
                 </div>
-              </section>
-
-              {/* Tips Section */}
-              <section className="bg-indigo-600 p-8 rounded-[3rem] shadow-2xl shadow-indigo-500/40 text-center relative overflow-hidden group">
-                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-700"></div>
-                 <div className="relative z-10">
-                   <h4 className="text-2xl font-black text-white mb-4 flex items-center justify-center gap-3">
-                     <Lightbulb className="w-8 h-8 text-yellow-300 animate-pulse" /> <span>טיפ קטן להצלחה</span>
-                   </h4>
-                   <p className="text-xl text-indigo-100 leading-relaxed font-bold max-w-3xl mx-auto">
-                     "השילוב המנצח הוא לקרוא את הסיכומים דרך 'חומרים ודגשים', לשאול את ה-AI על מושגים שלא הבנתם, ואז להיבחן בסימולטור כדי לוודא שהחומר הופנם."
-                   </p>
-                 </div>
               </section>
 
             </div>
-
-            {/* Footer */}
+            
             <div className="p-8 bg-white dark:bg-slate-900 border-t dark:border-slate-800 shrink-0 flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex items-center gap-3 order-2 md:order-1">
-                <ShieldCheck className="w-5 h-5 text-[#6c5ce7]" />
-                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Secured Academy Management System</span>
+              <div className="text-right">
+                <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Developer Signature</p>
+                <p className="text-sm font-bold text-gray-600 dark:text-slate-300 flex items-center gap-2"><Terminal className="w-4 h-4 text-[#6c5ce7]" /> 2026 צחי אלבז - מערכות מידע</p>
               </div>
               <button onClick={() => setIsGuideModalOpen(false)} className="w-full md:w-auto bg-gradient-to-r from-cyan-600 to-indigo-600 text-white px-12 py-5 rounded-[2rem] font-black text-2xl shadow-xl shadow-indigo-600/30 transition-all active:scale-95 hover:scale-102 flex items-center justify-center gap-4 order-1 md:order-2">
                 <span>יאללה, בואו נתחיל!</span>
@@ -1561,6 +1387,192 @@ ${contextInjection}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {isDelinquencyQuizOpen && (
+          <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-3xl flex items-center justify-center p-0 md:p-6 overflow-hidden pt-[80px] md:pt-6">
+              <div className="bg-white dark:bg-[#0f172a] w-full max-w-4xl md:rounded-[3rem] shadow-[0_40px_100px_rgba(0,0,0,0.6)] relative border-t-[12px] border-[#6c5ce7] flex flex-col h-full md:h-[92vh] overflow-hidden animate-[pop-in_0.5s_ease-out]">
+                  <div className="bg-white dark:bg-[#0f172a] z-[50] border-b border-gray-100 dark:border-slate-800 shadow-lg relative">
+                      <div className="w-full h-2 bg-gray-100 dark:bg-slate-800 overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-[#6c5ce7] via-[#a29bfe] to-[#00b894] transition-all duration-700 ease-out shadow-[0_0_15px_rgba(108,92,231,0.5)]" style={{ width: `${((quizIdx + 1) / (activeQuestions.length || 1)) * 100}%` }} />
+                      </div>
+                      <div className="p-4 md:p-6 flex flex-col md:flex-row justify-between items-center gap-4">
+                          <div className="flex gap-2 w-full md:w-auto">
+                              <button onClick={shufflePractice} className="flex-1 md:flex-none bg-indigo-500 hover:bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md"><Shuffle className="w-4 h-4" /><span className="inline">ערבב</span></button>
+                              <button onClick={finishQuiz} disabled={isSubmittingScore} className={`flex-1 md:flex-none bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md ${isSubmittingScore ? 'opacity-70 animate-pulse' : ''}`}>{isSubmittingScore ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}<span>סיים ושמור</span></button>
+                          </div>
+                          <div className="text-right w-full md:w-auto flex items-center gap-4 justify-between md:justify-end">
+                              <div className="flex items-center gap-2">
+                                  <div className="flex flex-col items-center bg-green-50 dark:bg-green-900/20 px-4 py-1.5 rounded-xl border border-green-200 dark:border-green-800"><span className="text-xs text-green-700 dark:text-green-400 font-black">נכון: {quizStats.correct}</span></div>
+                                  <div className="flex flex-col items-center bg-red-50 dark:bg-red-900/20 px-4 py-1.5 rounded-xl border border-red-200 dark:border-red-800"><span className="text-xs text-red-700 dark:text-red-400 font-black">טעות: {quizStats.incorrect}</span></div>
+                              </div>
+                              <div className="bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center gap-2"><h2 className="text-xs md:text-xl font-black text-gray-800 dark:text-white">שאלה {quizIdx + 1}/{activeQuestions.length}</h2><BrainCircuit className="w-5 h-5 text-indigo-500 animate-soft-pulse" /></div>
+                          </div>
+                      </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto custom-scrollbar p-5 md:p-10 text-right space-y-8 bg-slate-50/30 dark:bg-transparent pb-32">
+                      <div className="bg-white/80 dark:bg-slate-800/80 p-6 md:p-10 rounded-[2.5rem] border-2 border-indigo-100/50 dark:border-slate-700 shadow-xl relative overflow-hidden group backdrop-blur-sm">
+                          <div className="absolute top-4 right-4 bg-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-black">LEVEL: {activeQuestions[quizIdx]?.lvl === Difficulty.EASY ? 'EASY' : activeQuestions[quizIdx]?.lvl === Difficulty.MEDIUM ? 'INTERMEDIATE' : 'ADVANCED'}</div>
+                          <h3 className="text-xl md:text-3xl font-black leading-relaxed text-gray-800 dark:text-white relative z-10 pt-4">{activeQuestions[quizIdx]?.q}</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+                        {activeQuestions[quizIdx]?.a.map((opt, i) => { 
+                          const show = selectedAnswer !== null; 
+                          const isCorrect = i === activeQuestions[quizIdx].correct; 
+                          const isSelected = selectedAnswer === i; 
+                          let btnClass = "group w-full p-5 md:p-6 rounded-[2rem] text-right font-bold text-sm md:text-lg border-[3px] transition-all duration-300 flex items-center justify-between relative overflow-hidden "; 
+                          if (!show) { btnClass += "border-transparent bg-white dark:bg-slate-800 text-gray-700 dark:text-slate-200 hover:border-[#6c5ce7]/50 hover:bg-indigo-50/30 active:scale-[0.98] shadow-md"; } 
+                          else if (isCorrect) { btnClass += "bg-green-500 border-green-600 text-white shadow-[0_0_20px_rgba(34,197,94,0.3)] scale-[1.02] z-10 animate-pulse-glow"; } 
+                          else if (isSelected) { btnClass += "bg-red-500 border-red-600 text-white shadow-lg"; } 
+                          else { btnClass += "opacity-30 border-transparent text-gray-400 dark:text-slate-600 scale-[0.97]"; }
+                          return (
+                            <button key={i} disabled={show} onClick={() => { setSelectedAnswer(i); if(i === activeQuestions[quizIdx].correct) setQuizStats(prev => ({...prev, correct: prev.correct+1})); else setQuizStats(prev => ({...prev, incorrect: prev.incorrect+1})); }} className={btnClass}><span className="relative z-10 leading-snug flex-1">{opt}</span><div className="relative z-10 flex-shrink-0 mr-4">{show && isCorrect && <CheckCircle2 className="w-6 h-6 md:w-8 md:h-8" />}{show && isSelected && !isCorrect && <XCircle className="w-6 h-6 md:w-8 md:h-8" />}</div></button>
+                          ); 
+                        })}
+                      </div>
+                      
+                      {selectedAnswer !== null && (
+                        <div className="animate-shiny-rise">
+                          <div className={`p-6 md:p-8 rounded-[2.5rem] border-r-[10px] shadow-xl relative overflow-hidden ${selectedAnswer === activeQuestions[quizIdx].correct ? 'bg-green-50/90 dark:bg-green-900/10 border-green-500' : 'bg-red-50/90 dark:bg-red-900/10 border-red-500'}`}><div className={`flex items-center gap-3 mb-3 ${selectedAnswer === activeQuestions[quizIdx].correct ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}><Info className="w-6 h-6" /><h4 className="text-lg md:text-xl font-black uppercase tracking-tight">הסבר מקצועי:</h4></div><p className="text-sm md:text-xl text-gray-800 dark:text-slate-200 leading-relaxed font-bold">{activeQuestions[quizIdx].exp || "המשך לשאלה הבאה בביטחון."}</p></div>
+                        </div>
+                      )}
+                  </div>
+                  {/* Fixed Footer for Question Navigation */}
+                  <div className="absolute bottom-0 left-0 w-full p-4 md:p-8 bg-white/80 dark:bg-[#0f172a]/80 backdrop-blur-xl border-t border-gray-100 dark:border-slate-800 flex flex-col items-center z-50">
+                      <button onClick={nextQuestion} className={`w-full max-w-4xl bg-[#6c5ce7] hover:bg-[#5a4bcf] text-white py-5 md:py-6 rounded-[2rem] font-black text-lg md:text-2xl shadow-[0_15px_40px_rgba(108,92,231,0.3)] hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-4 group`}>
+                        <span>שאלה הבאה ⬅️</span>
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {isHallOfFameOpen && (
+        <div className="fixed inset-0 z-[300] bg-black flex items-center justify-center overflow-hidden">
+           <video src="https://res.cloudinary.com/djmztsgdk/video/upload/v1770589248/%D7%99%D7%A6%D7%99%D7%A8%D7%AA_%D7%9C%D7%95%D7%92%D7%95_%D7%90%D7%A0%D7%99%D7%9E%D7%A6%D7%99%D7%94_%D7%9C%D7%93%D7%9E%D7%95%D7%AA_wnrjdh.mp4" autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover opacity-20 filter blur-sm scale-110" />
+           <div className="relative z-10 bg-white/10 dark:bg-slate-900/60 backdrop-blur-2xl w-full max-w-2xl md:rounded-[3rem] h-full md:h-[85vh] shadow-[0_0_100px_rgba(108,92,231,0.4)] border-x md:border-4 border-[#6c5ce7]/30 flex flex-col text-right overflow-hidden animate-shiny-rise pt-24 md:pt-0">
+              <div className="p-6 md:p-8 flex justify-between items-center bg-gradient-to-b from-black/40 to-transparent"><button onClick={() => setIsHallOfFameOpen(false)} className="w-12 h-12 bg-white/10 hover:bg-red-500 rounded-full flex items-center justify-center text-white transition-all shadow-xl hover:scale-110 active:scale-90"><X className="w-6 h-6" /></button><div className="text-right"><h2 className="text-3xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-white to-yellow-600 flex items-center gap-3 justify-end drop-shadow-2xl"><Trophy className="w-10 h-10 text-yellow-500 animate-bounce" /><span>היכל התהילה</span></h2><p className="text-lg md:text-xl text-cyan-400 font-black tracking-widest mt-1 uppercase">{currentHallOfFameSubject}</p></div></div>
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8 space-y-4">
+                {loadingHallOfFame ? (<div className="space-y-4">{[1, 2, 3, 4, 5, 6].map(i => (<div key={i} className="h-24 bg-slate-700/30 rounded-[2rem] animate-pulse flex items-center justify-between px-8"><div className="w-14 h-14 bg-slate-600/40 rounded-full" /><div className="flex-1 mr-6 h-8 bg-slate-600/40 rounded-full" /><div className="w-20 h-10 bg-slate-600/40 rounded-full" /></div>))}</div>) : hallOfFameData.length > 0 ? (<div className="space-y-4 animate-in fade-in duration-700">{hallOfFameData.map((s, i) => { const isCurrentUser = s.name === loginName; let rankStyle = "bg-white/5 border-white/10 hover:bg-white/10"; let medalIcon = <span className="text-slate-400 font-black text-xl">#{i + 1}</span>; let glowClass = ""; if (i === 0) { rankStyle = "bg-yellow-400/10 border-yellow-400/50 shadow-[0_0_20px_rgba(250,204,21,0.2)]"; medalIcon = <span className="text-4xl">🥇</span>; } else if (i === 1) { rankStyle = "bg-slate-200/10 border-slate-300/50"; medalIcon = <span className="text-4xl">🥈</span>; } else if (i === 2) { rankStyle = "bg-orange-400/10 border-orange-400/50"; medalIcon = <span className="text-4xl">🥉</span>; } if (isCurrentUser) { glowClass = "ring-4 ring-blue-500 ring-opacity-60 shadow-[0_0_40px_rgba(59,130,246,0.7)] !bg-blue-600/20 !border-blue-400"; } return (<div key={i} className={`p-6 rounded-[2.5rem] border-2 flex items-center justify-between shadow-xl transform transition-all hover:scale-[1.03] active:scale-95 group ${rankStyle} ${glowClass}`}><div className="flex items-center gap-4 md:gap-6"><div className="w-16 h-16 rounded-full bg-black/20 flex items-center justify-center shadow-inner ring-2 ring-white/5 group-hover:rotate-12 transition-transform">{medalIcon}</div><div className="text-right"><div className={`font-black text-xl md:text-3xl leading-none ${isCurrentUser ? 'text-blue-400 drop-shadow-[0_0_100px_rgba(59,130,246,0.5)]' : 'text-white'}`}>{s.name} {isCurrentUser && <span className="text-sm font-bold text-blue-300 mr-2">(זה אתה!)</span>}</div><div className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mt-1">Student Performance Rank</div></div></div><div className={`text-3xl md:text-6xl font-black tabular-nums transition-colors ${i === 0 ? 'text-yellow-400' : isCurrentUser ? 'text-blue-400' : 'text-cyan-400'}`}><AnimatedScore target={s.points} /></div></div>); })}</div>) : (<div className="flex flex-col items-center justify-center py-20 text-center space-y-6"><div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center animate-pulse"><History className="w-12 h-12 text-slate-600" /></div><p className="text-2xl text-slate-400 font-black tracking-widest italic max-sm:text-xl">עדיין אין מצטיינים במקצוע זה, בואו להיות הראשונים!</p></div>)}
+              </div>
+              <div className="p-8 bg-gradient-to-t from-black/60 to-transparent mt-auto"><button onClick={() => setIsHallOfFameOpen(false)} className="w-full bg-gradient-to-r from-[#6c5ce7] to-[#a29bfe] text-white py-6 rounded-[2.5rem] font-black text-2xl shadow-[0_15px_30px_rgba(108,92,231,0.4)] transition-all hover:scale-102 active:scale-95 flex items-center justify-center gap-3 uppercase tracking-widest"><RefreshCcw className="w-8 h-8" /><span>חזרה</span></button></div>
+           </div>
+        </div>
+      )}
+
+      {isInfoModalOpen && selectedExam && (
+        <div className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1e293b] w-full max-w-2xl rounded-[2.5rem] p-8 shadow-2xl relative border-4 border-[#00b894] overflow-y-auto max-h-[90vh] text-right transition-all">
+            <button onClick={() => setIsInfoModalOpen(false)} className="absolute top-6 left-6 text-3xl opacity-30 hover:opacity-100 transition-all dark:text-slate-100">✕</button>
+            
+            <div className="mb-6 border-b pb-4">
+              <h2 className="text-3xl font-black text-[#00b894]">{selectedExam.subject}</h2>
+            </div>
+            
+            {selectedExam.adminNote && selectedExam.adminNote.length > 5 && (
+              <div className="p-8 bg-green-50/50 dark:bg-green-900/10 border-r-8 border-[#00b894] rounded-2xl mb-8 shadow-inner">
+                <span className="block font-black mb-4 text-[#00b894] text-2xl">📚 דגשים:</span>
+                <div className="whitespace-pre-line text-lg leading-relaxed text-gray-800 dark:text-slate-200 font-medium">
+                    {(() => {
+                        const cleanName = cleanSubjectName(selectedExam.subject);
+                        if (cleanName === "מבוא למשפט עברי") {
+                          return ""; 
+                        }
+                        return selectedExam.adminNote;
+                    })()}
+                </div>
+              </div>
+            )}
+
+            {(() => {
+              const match = apiMaterials.find(m => cleanSubjectName(m.name) === cleanSubjectName(selectedExam.subject));
+              if (match && match.filesList && match.filesList.length > 0) {
+                return (
+                  <div className="mb-10">
+                    <span className="block font-black mb-4 text-[#2563eb] text-2xl flex items-center gap-2">
+                      <FileBox className="w-6 h-6" /> חומרים להורדה ({match.filesList.length}):
+                    </span>
+                    <div className="grid grid-cols-1 gap-4">
+                      {match.filesList.map((file, idx) => {
+                        const isNew = file.dateCreated && (Date.now() - new Date(file.dateCreated).getTime()) < 24 * 60 * 60 * 1000;
+                        
+                        return (
+                          <a 
+                            key={idx} 
+                            href={file.link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className={`w-full relative bg-blue-600 dark:bg-blue-700 border-2 border-blue-400 dark:border-blue-500 text-white p-5 rounded-2xl font-black text-center shadow-lg transition-all flex items-center justify-between group active:scale-[0.98] hover:shadow-2xl hover:bg-blue-700 ${isNew ? 'animate-blue-gentle' : ''}`}
+                          >
+                            <span className="flex items-center gap-3">
+                              <div className="p-2 bg-white/20 rounded-lg shadow-sm group-hover:animate-bounce">
+                                  <Download className="w-5 h-5" />
+                              </div>
+                              {file.name}
+                            </span>
+                            <div className="flex items-center gap-4">
+                               {isNew && (
+                                 <span className="bg-red-600 text-white text-[10px] font-black px-3 py-1 rounded-full shadow-[0_0_10px_rgba(220,38,38,0.6)] animate-blink-red">חדש!</span>
+                               )}
+                               <ExternalLink className="w-4 h-4 opacity-50" />
+                            </div>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            <div className="mt-auto flex flex-col gap-4">
+              {selectedExam.id === 2 && (
+                <>
+                  <a href="https://1drv.ms/p/c/1122f8b51af83346/IQAYa7h8BdDERaPoOE9gbHxAAVfxReRnZmz6fN-tqM12of8?e=awivpN" target="_blank" className="w-full bg-gradient-to-r from-blue-400 to-indigo-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl"><Presentation className="w-6 h-6" /><span>איסוף מצגות מקורי 📁</span></a>
+                  <a href="https://1drv.ms/w/c/1122f8b51af83346/IQBMIZaV3YkiQJCkvHflYrYvAY0fhSLVvbHRIF3p58YC1Z8?e=uLQjHo" target="_blank" className="w-full bg-blue-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl"><FileText className="w-6 h-6" /><span>סיכום הגדרות ממוקד</span></a>
+                  <button onClick={() => { setIsInfoModalOpen(false); startQuiz("עבריינות והערכת מסוכנות"); }} className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-orange-500/20"><span>תרגול למבחן 🎯</span></button>
+                </>
+              )}
+              
+              {selectedExam.id === 3 && (
+                <>
+                  <a href="https://1drv.ms/w/c/1122f8b51af83346/IQAk6cUNVLAMTIHfVuu2frQcAeXJZOF4NKx2PEfm6Tavfx8?e=3nhVx4" target="_blank" className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-purple-500/20"><FileText className="w-6 h-6" /><span>סיכום סופי 📄</span></a>
+                  <a href="https://1drv.ms/w/c/1122f8b51af83346/IQAerq4iwxYdSa4DItVqaD_yAXozXa1bpl21VannYwa_g9w?e=hVdRZG" target="_blank" className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-blue-500/20"><FileText className="w-6 h-6" /><span>סיכום הגדרות 📑</span></a>
+                  <button onClick={() => { setIsInfoModalOpen(false); startQuiz("משטרה וחברה"); }} className="w-full bg-gradient-to-r from-orange-500 to-red-600 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-orange-500/20"><span>תרגול למבחן 🎯</span></button>
+                  <button onClick={() => setShowZoomLinkBox(!showZoomLinkBox)} className="w-full bg-gradient-to-r from-blue-500 to-indigo-700 text-white py-5 rounded-[2rem] font-black text-center shadow-xl hover:scale-102 transition-all flex items-center justify-center gap-2 text-xl shadow-blue-500/30"><Video className="w-6 h-6" /><span>זום חזרה למבחן 🎥</span></button>
+                  {showZoomLinkBox && (
+                    <div className="bg-slate-100 dark:bg-slate-800 p-6 rounded-[2rem] border-2 border-indigo-200 dark:border-slate-700 mt-2 space-y-4 animate-in zoom-in duration-300">
+                      <div className="text-right text-sm font-bold text-gray-500 mb-1">קישור להקלטה:</div>
+                      <div className="bg-white dark:bg-slate-900 p-4 rounded-xl text-xs font-mono break-all text-[#6c5ce7] dark:text-indigo-300 border border-indigo-100 dark:border-slate-700">{policeZoomLink}</div>
+                      <div className="flex gap-3">
+                        <button onClick={() => handleCopyValue(policeZoomLink)} className="flex-1 bg-white dark:bg-slate-700 border-2 border-indigo-200 dark:border-slate-600 py-3 rounded-xl font-black text-gray-700 dark:text-white flex items-center justify-center gap-2 hover:bg-indigo-50 transition-all shadow-sm">
+                          <Copy className="w-4 h-4" /><span>{copyFeedback || 'העתק לינק'}</span>
+                        </button>
+                        <button onClick={() => window.open(policeZoomLink, '_blank')} className="flex-1 bg-indigo-600 text-white py-3 rounded-xl font-black flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all shadow-lg">
+                          <ExternalLink className="w-4 h-4" /><span>העבר לאתר</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              <button onClick={() => setIsInfoModalOpen(false)} className="w-full bg-slate-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 py-4 rounded-[2rem] font-black text-center border-2 border-slate-200 dark:border-slate-700 transition-all shadow-sm active:scale-95 text-lg">חזרה</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isAdminPanelOpen && loginName === 'צחיי' && (
+        <div className="fixed inset-0 z-[400] bg-black/40 backdrop-blur-sm flex items-start justify-center p-2 md:p-4 overflow-y-auto" dir="rtl">
+          <div className="bg-white dark:bg-slate-900 w-full max-xl rounded-[2.5rem] p-5 md:p-6 shadow-2xl relative border-4 border-[#6c5ce7] animate-[pop-in_0.4s_ease-out] text-right mt-4 md:mt-8 mb-8 max-h-[90vh] flex flex-col overflow-hidden"><button onClick={() => setIsAdminPanelOpen(false)} className="absolute top-4 left-6 text-2xl opacity-40 hover:opacity-100 transition-all dark:text-white z-20">✕</button><div className="flex items-center gap-3 mb-4 border-b border-[#6c5ce7]/20 pb-3"><Settings className="w-5 h-5 text-[#6c5ce7] animate-spin-slow" /><h2 className="text-xl font-black text-[#6c5ce7] dark:text-[#a29bfe]">ניהול מערכת</h2></div><div className="flex-1 overflow-y-auto custom-scrollbar space-y-5 pr-1"><section className="space-y-3"><div className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-[#6c5ce7]" /><h3 className="text-sm font-black text-gray-800 dark:text-white">עדכון מבזקים</h3></div><div className="relative"><textarea value={adminTickerText} onChange={(e) => setAdminTickerText(e.target.value)} placeholder="הזן מבזקים מופרדים ב-(;)" className="w-full h-20 p-3 rounded-xl border-2 border-gray-100 dark:border-slate-700 bg-gray-50/50 dark:bg-slate-800/50 font-bold outline-none focus:border-[#6c5ce7] transition-all dark:text-white resize-none text-xs" /></div><button onClick={handleUpdateTicker} disabled={isSavingTicker || isAdminLoadingData} className="w-full bg-[#6c5ce7] text-white py-3 rounded-xl font-black text-sm shadow-md flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 transition-all">{isSavingTicker ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}<span>שמור ועדכן</span></button></section><section className="space-y-2"><div className="bg-gray-50 dark:bg-white/5 p-3 rounded-xl border border-gray-200 dark:border-slate-700 flex items-center justify-between"><div className="flex items-center gap-2"><Power className={`w-4 h-4 ${maintenanceMode ? 'text-red-500' : 'text-green-500'}`} /><span className="text-xs font-black text-gray-800 dark:text-white">מצב תחזוקה</span></div><button onClick={toggleMaintenanceMode} disabled={isUpdatingStatus} className={`w-10 h-5 rounded-full relative transition-all shadow-inner ${maintenanceMode ? 'bg-red-500' : 'bg-green-500'}`}><div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all shadow-md ${maintenanceMode ? 'right-0.5' : 'right-5.5'}`} /></button></div><p className="text-[10px] text-gray-500 dark:text-gray-400 font-bold px-1 italic">כאשר הלחצן אדום - האתר במצב תחזוקה וחסום לגישת משתמשים.</p></section><section className="space-y-3"><div className="flex items-center gap-2"><BarChart className="w-4 h-4 text-orange-500" /><h3 className="text-sm font-black text-gray-800 dark:text-white">סטטיסטיקת כניסות יומית (Live)</h3></div><div className="bg-gray-50 dark:bg-slate-800/50 p-4 rounded-xl border border-gray-200 dark:border-slate-700 h-[200px] flex items-end justify-between gap-2 relative group overflow-hidden pt-10">{isAdminLoadingData ? (<div className="w-full h-full flex items-center justify-center"><Loader2 className="w-6 h-6 animate-spin text-orange-500 opacity-30" /></div>) : adminGraphData.length > 0 ? (adminGraphData.map((d, i) => { const now = new Date(); const todayLabel = now.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }); const isToday = d.label.includes(todayLabel); return (<div key={i} className="flex-1 flex flex-col items-center gap-2 group/bar h-full justify-end"><div className="relative w-full flex justify-center items-end h-[100px]"><div className={`absolute -top-7 left-1/2 -translate-x-1/2 text-[11px] font-black ${isToday ? 'text-blue-600 scale-110' : 'text-orange-600'} bg-white dark:bg-slate-900 px-2 py-0.5 rounded-lg border shadow-sm z-20 animate-in fade-in zoom-in`}>{d.value}</div><div className={`w-full max-w-[28px] ${isToday ? 'bg-gradient-to-t from-blue-700 via-blue-500 to-blue-300 shadow-[0_0_20px_rgba(59,130,246,0.8)]' : 'bg-gradient-to-t from-orange-600 via-orange-500 to-orange-400'} rounded-t-lg transition-all duration-1000 ease-out h-[${(d.value / maxVisits) * 100}%]`} style={{ height: `${(d.value / Math.max(...adminGraphData.map(v => v.value), 1)) * 100}%` }} /></div><div className={`text-[9px] font-black ${isToday ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'} uppercase tracking-tighter text-center mt-1`}>{d.label}</div></div>); })) : (<div className="w-full h-full flex items-center justify-center text-xs text-gray-400 italic font-bold">ממתין לנתוני גרף...</div>)}</div></section><section className="space-y-2"><div className="flex items-center gap-2"><History className="w-4 h-4 text-indigo-500" /><h3 className="text-sm font-black text-gray-800 dark:text-white">כניסות אחרונות</h3></div><div className="flex flex-wrap gap-2 mb-2 px-1"><div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_rgba(34,197,94,0.5)]"></div><span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">טלפון</span></div><div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]"></div><span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">מחשב</span></div><div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-yellow-500 shadow-[0_0_5px_rgba(234,179,8,0.5)]"></div><span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">סימולטור</span></div><div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_5px_rgba(168,85,247,0.5)]"></div><span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">ניהול</span></div></div><div className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-700 overflow-hidden shadow-inner"><div className="max-h-[300px] overflow-y-auto custom-scrollbar"><table className="w-full text-center border-collapse"><thead className="bg-gray-100 dark:bg-slate-700 sticky top-0 z-20"><tr className="text-[10px] font-black text-gray-500 dark:text-slate-100"><th className="py-2 px-1">שם</th><th className="py-2 px-1">פעולה</th><th className="py-2 px-1">תאריך</th><th className="py-2 px-1">שעה</th><th className="py-2 px-1">עיר</th></tr></thead><tbody className="text-[11px]">{isAdminLoadingData ? (<tr><td colSpan={5} className="py-8"><Loader2 className="w-5 h-5 animate-spin mx-auto text-[#6c5ce7]" /></td></tr>) : adminLastEntries.length > 0 ? (adminLastEntries.slice(0, 100).map((user: any, idx: number) => { const action = String(user.userAction || '-'); let badgeColor = 'bg-gray-50 text-gray-600 border-gray-200'; if (action === 'סימולטור') badgeColor = 'bg-yellow-50 text-yellow-600 border-yellow-200'; else if (action === 'טלפון') badgeColor = 'bg-green-50 text-green-600 border-green-200'; else if (action === 'מחשב') badgeColor = 'bg-blue-50 text-blue-600 border-blue-200'; else if (action === 'admin_access') badgeColor = 'bg-purple-50 text-purple-600 border-purple-200'; return (<tr key={idx} className="border-t border-gray-50 dark:border-slate-700 hover:bg-indigo-50/30 transition-colors"><td className="py-2 px-1 font-bold text-gray-800 dark:text-slate-100 truncate max-w-[70px]">{user.userName || '-'}</td><td className="py-2 px-1"><span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black border ${badgeColor}`}>{action}</span></td><td className="py-2 px-1 text-gray-500 tabular-nums">{user.entryDate || '-'}</td><td className="py-2 px-1 tabular-nums text-indigo-600 dark:text-indigo-300 font-bold">{formatOnlyTime(user.entryTime)}</td><td className="py-2 px-1 text-gray-400 truncate max-w-[60px]">{user.userCity || '-'}</td></tr>); })) : (<tr><td colSpan={5} className="py-10 text-gray-400 italic">אין נתונים זמינים</td></tr>)}</tbody></table></div></div></section></div><button onClick={() => setIsAdminPanelOpen(false)} className="mt-4 w-full bg-slate-100 dark:bg-slate-800 text-gray-700 dark:text-white py-3 rounded-xl font-black text-sm active:scale-95 transition-all">סגור חלונית</button></div>
+        </div>
+      )}
+
+      {contactModal.isOpen && (
+        <div className="fixed inset-0 z-[500] bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-sm rounded-[2.5rem] p-8 shadow-2xl relative border-2 border-[#6c5ce7] text-right animate-[pop-in_0.3s_ease-out]"><button onClick={() => setContactModal(p => ({ ...p, isOpen: false }))} className="absolute top-4 left-6 text-xl opacity-40 hover:opacity-100 dark:text-white">✕</button><div className="flex flex-col items-center gap-4 text-center"><div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg ${contactModal.type === 'phone' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>{contactModal.type === 'phone' ? <Phone className="w-8 h-8" /> : <Mail className="w-8 h-8" />}</div><h3 className="text-xl font-black text-gray-800 dark:text-white">{contactModal.title}</h3><p className="text-lg font-bold text-[#6c5ce7] break-all">{contactModal.value}</p><div className="flex flex-col gap-3 w-full mt-4"><a href={contactModal.type === 'phone' ? `tel:${contactModal.value}` : `mailto:${contactModal.value}`} className={`w-full py-4 rounded-2xl text-white font-black flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg ${contactModal.type === 'phone' ? 'bg-green-600 shadow-green-600/20 hover:bg-green-700' : 'bg-blue-600 shadow-blue-600/20 hover:bg-blue-700'}`}>{contactModal.type === 'phone' ? <><Phone className="w-5 h-5" /><span>התקשר עכשיו</span></> : <><Send className="w-5 h-5" /><span>שלח הודעה</span></>}</a><button onClick={() => handleCopyValue(contactModal.value)} className="w-full py-4 rounded-2xl bg-slate-100 dark:bg-slate-800 text-gray-700 dark:text-white font-black flex items-center justify-center gap-2 border border-slate-200 dark:border-slate-700 transition-all hover:bg-slate-200"><Copy className="w-5 h-5" /><span>{copyFeedback || 'העתק למגש'}</span></button></div></div></div>
         </div>
       )}
     </div>
